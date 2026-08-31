@@ -1,6 +1,6 @@
 """Endpoint paths for the LingYun quantum service.
 
-Kept as constants in one place so the 172.29.220.35 simulation
+Kept as constants in one place so the xx.xx.xx.xx simulation
 server and qc.zdxlz.com cloud can be swapped without editing client
 methods.
 """

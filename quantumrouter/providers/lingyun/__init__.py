@@ -5,7 +5,7 @@ Self-registers with :class:`ProviderRegistry` on import so that
 ``import quantumrouter.providers.lingyun``.
 
 Endpoint paths and auth headers are defined in :mod:`config` so that
-the 172.29.220.35 simulation server and qc.zdxlz.com cloud can be
+the xx.xx.xx.xx simulation server and qc.zdxlz.com cloud can be
 swapped without touching client logic.
 """
 

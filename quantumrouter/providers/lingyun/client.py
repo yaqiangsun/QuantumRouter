@@ -76,7 +76,7 @@ class LingYunApiClient:
         }
 
     @staticmethod
-    def _check(data: dict, *, ok_code: int | tuple[int, int] = 200) -> dict:
+    def _check(data: dict, *, ok_code: int | tuple[int, int] = 0) -> dict:
         """Raise ProviderError if the response code is unexpected.
 
         Returns the ``data`` payload on success.
@@ -146,7 +146,7 @@ class LingYunApiClient:
         machine: str,
         *,
         shots: int = 1000,
-        language: str = "qcis",
+        language: str = "openqasm3",
     ) -> list:
         """Submit a job and return the assigned task IDs."""
         body = {
@@ -173,17 +173,18 @@ class LingYunApiClient:
             url=self.QUERY_RESULT,
             method="POST",
             json={"query_ids": task_ids},
-            headers=self._headers("result"),
+            headers=self._headers("config"),
         )
         # query result uses code=0 (not 200) as success
         resp = self.transport.request(req)
         data = resp.json()
+        # print("[client.py] data: ", data)
         code = data.get("code")
         if code != 0:
             raise ProviderError(
                 f"LingYun query_job failed: code={code}, msg={data.get('msg')}"
             )
-        return data.get("data", {})
+        return data.get('data').get('experimentResultModelList')
 
 
 def _now_ms() -> float:

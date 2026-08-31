@@ -35,7 +35,7 @@ def main() -> None:
     # ------------------------------------------------------------------ #
     provider = quantumrouter.create_provider(
         backend="lingyun",
-        url="http://172.29.220.35:8000",          # simulation server
+        url="http://xx.xx.xx.xx:8000",          # simulation server
         token=os.environ.get("LINGYUN_TOKEN", ""),
     )
 
