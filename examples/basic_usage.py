@@ -26,7 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import quantumrouter  # noqa: E402 - path adjusted above
-
+import time
 
 def main() -> None:
     # ------------------------------------------------------------------ #
@@ -35,7 +35,7 @@ def main() -> None:
     # ------------------------------------------------------------------ #
     provider = quantumrouter.create_provider(
         backend="lingyun",
-        url="http://xx.xxxx.xx:xxxx",          # simulation server
+        url="http://172.29.220.35:8000",          # simulation server
         token=os.environ.get("LINGYUN_TOKEN", ""),
     )
 
@@ -51,9 +51,6 @@ def main() -> None:
         return
 
     print(f"Available backends ({len(backends)}):")
-    for b in backends:
-        kind = "simulator" if b.is_simulator else "quantum"
-        print(f"  - {b.name} ({kind})")
 
     if not backends:
         print("No backends found. Check the URL / token.")
@@ -65,24 +62,63 @@ def main() -> None:
     backend = backends[0]
 
     # Pull this backend's calibration / hardware configuration.
-    print(f"\nFetching configuration for {backend.name!r}...")
+    print(f"\nFetching configuration...")
     config = backend.fetch_configuration()
     print(f"  keys: {list(config.keys())[:5]}...")
 
-    # Submit a single-circuit job.
-    # ``circuits`` are vendor-specific serialized circuit strings
-    # (LingYun uses QCIS).
-    circuit_str = "QINIT 4\nH 0"
-    print("\nSubmitting job...")
-    task_ids = backend.submit_job([circuit_str], shots=1024)
-    print(f"  task_ids: {task_ids}")
+    # from qiskit import QuantumCircuit
+    # qc_raw = QuantumCircuit(7, 2, name="demo_circuit")
+    # qc_raw.x(0)
+    # qc_raw.x(0)
+    # qc_raw.cz(0, 6)
+    # qc_raw.measure(0, 0)
+    # qc_raw.measure(6, 1)
 
-    # ------------------------------------------------------------------ #
-    # Query results.
-    # ------------------------------------------------------------------ #
-    print("\nQuerying results...")
-    results = backend.query_job(task_ids)
-    print(f"  results: {results}")
+    from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
+    qc_raw = QuantumCircuit(7, 2, name="demo_circuit")
+    
+    # 替换两个x(0)为H门，制造叠加态
+    qc_raw.h(0)
+    
+    # CZ 纠缠门，Q0控制 Q6目标
+    qc_raw.cz(0, 6)
+    
+    # 分别：测量 Q0、Q6 到经典位 0、1
+    qc_raw.measure(0, 0)
+    qc_raw.measure(6, 1)
+
+    job = backend.run(
+        run_input=[qc_raw],
+        shots=1024,
+        readout_calibration=True
+    )
+    task_id = job.job_id()
+    print("\n[INFO] backend.run job: ", job)
+    print("task_id: ", task_id)
+
+    print("sleep for a while")
+    time.sleep(5)
+
+    res = job.result()
+    print("[INFO] backend.run-----res: ", res)
+
+    cnts = job.result().get_counts()
+    print("[INFO] backend.run -----cnts: ", cnts)
+
+    #---------------- segment ------------------
+    # TODO:要从qcis字符串改为openqasm3
+    # qcis字符串
+    # circuit_str = "X Q1\nH Q0\nCX Q0 Q1\nRX Q0 1.5707963267948966\nRX Q1 -1.5707963267948966\nB Q0 Q1\nM Q0\nM Q1"
+    # circuit_str = 
+    # print("\nSubmitting job...")
+    # task_ids = backend.submit_job([circuit_str], shots=1024, language="openqasm3")
+    # print(f"  task_ids: {task_ids}")
+
+    # time.sleep(3)
+
+    # print("\nQuerying results...task_ids", task_ids)
+    # results = backend.query_job(task_ids)
+    # print(f"  results: {results}")
 
 
 if __name__ == "__main__":

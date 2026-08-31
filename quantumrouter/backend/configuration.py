@@ -34,10 +34,19 @@ class BackendConfiguration:
         into this for vendor-specific fields they need later.
     """
 
-    backend_name: str
-    simulator: bool
-    status: BackendStatus = BackendStatus.UNKNOWN
-    data: dict = field(default_factory=dict)
+    def __init__(
+            self,
+            backend_name: str,
+            simulator: bool,
+            status: BackendStatus = None,
+            data: dict = None
+    ):
+        """Initializes the BackendConfiguration instance."""
+        self.backend_name = backend_name
+        self.simulator = simulator
+        self.status = status
+        self.data = data
+
 
     @classmethod
     def from_api(
@@ -65,7 +74,8 @@ class BackendConfiguration:
                 f"Backend API response missing 'code': {data!r}"
             ) from exc
 
-        simulator = bool(data.get("simulator", False))
+        simulator = bool(data.get("simulator", True))
+
         raw_status = data.get("status", "unknown")
         try:
             status = BackendStatus(raw_status)
