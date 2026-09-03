@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/quantumrouter-logo.svg" alt="QuantumRouter logo" width="320">
+  <img src="assets/quantumrouter-logo.svg" alt="QuantumRouter logo" width="200">
 </p>
 
 <h1 align="center">QuantumRouter</h1>
