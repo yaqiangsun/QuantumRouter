@@ -109,9 +109,8 @@ def create_provider(
     provider_cls = ProviderRegistry.get(backend)
     if instance is not None:
         connection_overrides.setdefault("instance", instance)
+
     connection = (
         ConnectionConfig.from_url(url, **connection_overrides)
-        if url is not None
-        else None
     )
     return provider_cls(connection=connection, token=token)

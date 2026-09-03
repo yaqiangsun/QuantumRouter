@@ -32,9 +32,17 @@ class LingYunProvider(Provider):
         *,
         token: str | None = None,
     ) -> None:
-        self.connection = connection
         self.token = token or ""
-        self._transport = create_transport(connection)
+        
+        if connection.base_url and isinstance(connection.base_url, str):
+            # 已经存在url时，不要覆盖
+            self.connection = connection
+        else:
+            # 上层url为None时，使用指定地址
+            default_url = "http://0.0.0.0:8000"
+            self.connection = ConnectionConfig.from_url(default_url, **connection.extra)
+
+        self._transport = create_transport(self.connection)
         self._transport.open()
         self._api_client = self._create_api_client()
 

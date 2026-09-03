@@ -35,7 +35,6 @@ def main() -> None:
     # ------------------------------------------------------------------ #
     provider = quantumrouter.create_provider(
         backend="TianYan",
-        url="https://qc.zdxlz.com",
         token=os.environ.get("TianYan_TOKEN", "xxxxxxxxxx"),
     )
 
@@ -54,11 +53,14 @@ def main() -> None:
     if not backends:
         print("No backends found. Check the URL / token.")
         return
-
+    # ------------------------------------------------------------------ #
+    # Pick one backend and submit a job.
+    # ------------------------------------------------------------------ #
+        
     # backend = backends[0]
     backend = provider.backend("tianyan_sw")
 
-    # 仿真机则测不了此接口
+    # 仿真机测不了
     # print(f"\nFetching configuration...")
     # config = backend.fetch_configuration()
     # print(f"  keys: {list(config.keys())[:5]}...")
@@ -104,8 +106,8 @@ def main() -> None:
     print("sleep for a while")
     time.sleep(5)
 
-    # res = job.result()
-    # print("[INFO] backend.run-----res: ", res)
+    res = job.result()
+    print("[INFO] backend.run-----res: ", res)
 
     cnts = job.result().get_counts()
     print("[INFO] backend.run -----cnts: ", cnts)

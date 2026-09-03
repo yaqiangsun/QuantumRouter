@@ -12,7 +12,6 @@ from ...backend.base import Backend
 from ...backend.configuration import BackendConfiguration
 from ...config import ConnectionConfig
 from ...exceptions import BackendNotFoundError
-from ...transport.factory import create_transport
 from .backend import TianYanQuantumBackend, TianYanSimulatorBackend
 from .client import TianYanApiClient
 
@@ -27,8 +26,6 @@ class TianYanProvider(Provider):
     ) -> None:
         self.connection = connection
         self.token = token or ""
-        self._transport = create_transport(connection)
-        self._transport.open()
         self._api_client = self._create_api_client()
 
     @classmethod
@@ -36,8 +33,7 @@ class TianYanProvider(Provider):
         return "TianYan"
 
     def _create_api_client(self) -> TianYanApiClient:
-        return TianYanApiClient(transport=self._transport,
-                                token=self.token)
+        return TianYanApiClient(token=self.token)
 
     def backends(
         self,
@@ -52,7 +48,7 @@ class TianYanProvider(Provider):
         result: list[Backend] = []
         for data in raw_backends:
             cfg = BackendConfiguration.from_api(data, self._api_client)
-            # FIXME:
+
             # if online and cfg.status not in (
             #     BackendStatus.RUNNING,
             #     BackendStatus.ONLINE,

@@ -35,13 +35,12 @@ def main() -> None:
     # ------------------------------------------------------------------ #
     provider = quantumrouter.create_provider(
         backend="lingyun",
-        url="http://xx.xx.xx.xx:8000",          # simulation server
+        url="http://xx.xx.xx.xx:8000", 
         token=os.environ.get("LINGYUN_TOKEN", ""),
     )
 
     # ------------------------------------------------------------------ #
     # List available backends for this user.
-    # This reaches the server; if it's not running we report and exit.
     # ------------------------------------------------------------------ #
     try:
         backends = provider.backends(online=True)
@@ -59,12 +58,13 @@ def main() -> None:
     # ------------------------------------------------------------------ #
     # Pick one backend and submit a job.
     # ------------------------------------------------------------------ #
-    backend = backends[0]
+    # backend = backends[0]
+    backend = provider.backend("lingyun_001")
 
     # Pull this backend's calibration / hardware configuration.
-    print(f"\nFetching configuration...")
-    config = backend.fetch_configuration()
-    print(f"  keys: {list(config.keys())[:5]}...")
+    # print(f"\nFetching configuration...")
+    # config = backend.fetch_configuration()
+    # print(f"  keys: {list(config.keys())[:5]}...")
 
     # from qiskit import QuantumCircuit
     # qc_raw = QuantumCircuit(7, 2, name="demo_circuit")

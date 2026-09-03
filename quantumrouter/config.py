@@ -77,7 +77,18 @@ class ConnectionConfig:
         - ``http://host[:port]`` and ``https://host[:port]``
         - ``pcie://<device_path>`` (e.g. ``pcie:///dev/quantum0``)
         """
-        if not isinstance(url, str) or not url:
+        if url is None:
+            timeout = overrides.pop("timeout", 30.0)
+            return cls(
+                transport_type=None,
+                host=None,
+                port=None,
+                base_url=None,
+                scheme=None,
+                timeout=timeout,
+                extra=overrides,
+            )
+        if not isinstance(url, str):
             raise ValueError("url must be a non-empty string")
 
         parsed = urlparse(url)

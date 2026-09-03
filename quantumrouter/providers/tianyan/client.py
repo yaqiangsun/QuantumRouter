@@ -22,10 +22,9 @@ class TianYanApiClient:
         Auth token for TianYan cloud login
     """
 
-    def __init__(self, transport, token: str = "") -> None:
+    def __init__(self, token: str = "") -> None:
         self.token = token
         self._platform = TianYanPlatform(login_key=self.token)
-        self.transport = transport
     
 
     def get_backends(self) -> list[dict]:
