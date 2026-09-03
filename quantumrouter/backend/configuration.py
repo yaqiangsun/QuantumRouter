@@ -8,12 +8,10 @@ provider code can stay thin.
 """
 
 from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Any
-
 from ..exceptions import QuantumRouterError
-from ..types import BackendStatus
+from ..types import BackendStatus, BackendType
 
 
 @dataclass
@@ -74,7 +72,12 @@ class BackendConfiguration:
                 f"Backend API response missing 'code': {data!r}"
             ) from exc
 
-        simulator = bool(data.get("simulator", True))
+        if data['labels'] == '1':
+            backend_type = BackendType.quantum_computer
+        else:
+            backend_type = BackendType.simulator
+
+        simulator = backend_type == BackendType.simulator
 
         raw_status = data.get("status", "unknown")
         try:

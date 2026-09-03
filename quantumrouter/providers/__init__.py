@@ -14,3 +14,4 @@ Importing this package imports all registered vendors so that
 
 from . import ibm as _ibm  # noqa: F401 - self-register side effect
 from . import lingyun as _lingyun  # noqa: F401 - self-register side effect
+from . import tianyan as _tianyan

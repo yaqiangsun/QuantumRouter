@@ -5,7 +5,7 @@ lives under ``quantumrouter/providers/<vendor>/``.
 """
 
 from __future__ import annotations
-
+from enum import IntEnum
 from dataclasses import dataclass
 from enum import Enum
 
@@ -42,14 +42,13 @@ class BackendStatus(str, Enum):
 
 class JobStatus(str, Enum):
     """Lifecycle state of a submitted quantum job."""
-
     UNKNOWN = "unknown"
     PENDING = "pending"
     RUNNING = "running"
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     CANCELLED = "cancelled"
-
+    
 
 @dataclass(frozen=True)
 class ApiResponse:
@@ -62,3 +61,9 @@ class ApiResponse:
     code: int
     msg: str
     data: object
+
+
+class BackendType(IntEnum):
+    """Enum representing the type of backend (quantum computer or simulator)."""
+    quantum_computer = 0
+    simulator = 1
