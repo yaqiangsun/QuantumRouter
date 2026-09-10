@@ -5,7 +5,32 @@ description = "Unified interface for quantum cloud providers. One API, any backe
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "qiskit>=2.5.2",
     "requests>=2.34.2",
+]
+
+# Optional dependencies for each vendor. Install with, e.g.:
+#   pip install "quantumrouter[tianyan]"     # TianYan deps only
+#   pip install "quantumrouter[all]"        # every vendor's deps
+[project.optional-dependencies]
+ibm = [
+    "qiskit-ibm-provider>=0.11.0",
+]
+lingyun = [
+    "numpy>=2.2.6",
+]
+tianyan = [
+    "cqlib-adapter>=0.3.3",
+]
+wuyue = [
+    "wuyue==1.1.2",
+]
+# All vendors at once.
+all = [
+    "quantumrouter[ibm]",
+    "quantumrouter[lingyun]",
+    "quantumrouter[tianyan]",
+    "quantumrouter[wuyue]",
 ]
 
 [build-system]
