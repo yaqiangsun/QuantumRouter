@@ -1,7 +1,7 @@
 """WuYue provider.
 Concrete :class:`Provider` for the WuYue quantum-cloud.
 All low-level Transport logic removed; network, auth, request assembly
-delegated to cqlib.WuYuePlatform wrapped inside WuYueApiClient.
+delegated to WuYuePlatform wrapped inside WuYueApiClient.
 Self-registers with :class:`ProviderRegistry` so that
 ``ProviderRegistry.get("WuYue")`` resolves once this package is imported.
 """

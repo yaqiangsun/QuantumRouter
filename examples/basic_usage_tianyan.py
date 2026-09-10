@@ -84,19 +84,6 @@ def main() -> None:
     qc_raw.measure(0, 0)
     qc_raw.measure(6, 1)
 
-    # from cqlib_adapter.qiskit_ext import X2PGate, X2MGate
-    # # 线路2
-    # qs = QuantumRegister(2)
-    # cs = ClassicalRegister(2)
-    # qc_raw = QuantumCircuit(qs, cs)
-    # qc_raw.x(qs[1])           # Pauli-X 门
-    # qc_raw.h(qs[0])           # Hadamard 门（将自动分解为物理门）
-    # qc_raw.cx(qs[0], qs[1])   # CNOT 门
-    # qc_raw.append(X2PGate(), [qs[0]])  # 添加 X2P 门
-    # qc_raw.append(X2MGate(), [qs[1]])  # 添加 X2M 门
-    # qc_raw.barrier(qs)
-    # qc_raw.measure(qs, cs)    #测量操作
-
     tqc = transpile(qc_raw, backend=backend)
     # tqc = transpile(qc_raw, backend=backend, layout_method="sabre")
 
