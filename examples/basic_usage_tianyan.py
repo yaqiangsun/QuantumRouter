@@ -21,6 +21,8 @@ import os
 import sys
 from pathlib import Path
 
+from qiskit import transpile
+
 # Allow running this example without installing the package:
 # ``python examples/basic_usage.py``
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -34,7 +36,7 @@ def main() -> None:
     # The transport (HTTP here) is inferred from the URL scheme.
     # ------------------------------------------------------------------ #
     provider = quantumrouter.create_provider(
-        backend="TianYan",
+        backend="tianyan",
         token=os.environ.get("TianYan_TOKEN", "xxxxxxxxxx"),
     )
 
@@ -56,9 +58,10 @@ def main() -> None:
     # ------------------------------------------------------------------ #
     # Pick one backend and submit a job.
     # ------------------------------------------------------------------ #
-        
-    # backend = backends[0]
+    first = backends[0]
+
     backend = provider.backend("tianyan_sw")
+    coupling_map = backend.coupling_map
 
     # 仿真机测不了
     # print(f"\nFetching configuration...")
@@ -93,6 +96,13 @@ def main() -> None:
     # qc_raw.append(X2MGate(), [qs[1]])  # 添加 X2M 门
     # qc_raw.barrier(qs)
     # qc_raw.measure(qs, cs)    #测量操作
+
+    tqc = transpile(qc_raw, backend=backend)
+    # tqc = transpile(qc_raw, backend=backend, layout_method="sabre")
+
+    tqc.draw(idle_wires=False)
+    print("[END] tqc, type(tqc): ", tqc, type(tqc))
+
 
     job = backend.run(
         run_input=[qc_raw],
