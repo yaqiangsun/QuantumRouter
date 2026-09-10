@@ -91,8 +91,20 @@ from .provider import (
     register_provider,
 )
 
-# Import all vendor packages so they self-register.
-from .providers import lingyun as _lingyun  # noqa: F401 - self-register side effect
+# Import the providers package (but NOT any vendor subpackage) so
+# that ``quantrouter.providers.lingyun`` triggers the lazy
+# ``__getattr__`` in providers/__init__.py. Each vendor subpackage
+# pulls in heavy, vendor-specific third-party deps (qiskit, cqlib,
+# numpy, ...). Importing them eagerly would force every user to
+# install every vendor's deps even if they only use one.
+#
+# Providers self-register with :class:`ProviderRegistry` once
+# their package is explicitly imported by the user, e.g.::
+#
+#     import quantumrouter.providers.lingyun as _lingyun  # self-register
+#     # or, equivalently, attribute access triggers lazy import:
+#     quantumrouter.providers.lingyun
+from . import providers  # noqa: F401 - exposes lazy __getattr__ on attribute access
 
 __all__ = [
     "__version__",

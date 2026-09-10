@@ -106,6 +106,13 @@ def create_provider(
         p = create_provider("ibm", url="https://...")
 
     """
+    # Vendor packages self-register on import, but are imported
+    # lazily (see ``quantumrouter.providers.__getattr__``). Trigger
+    # the lazy import before the registry lookup so a fresh
+    # interpreter with no prior attribute access still resolves.
+    import quantumrouter.providers as _providers_pkg
+    _providers_pkg.__getattr__(backend)
+
     provider_cls = ProviderRegistry.get(backend)
     if instance is not None:
         connection_overrides.setdefault("instance", instance)
