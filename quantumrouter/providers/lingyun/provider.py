@@ -1,16 +1,12 @@
 """LingYun provider (凌云).
-
 Concrete :class:`Provider` for the LingYun quantum-cloud. Builds an
 open :class:`Transport` from the connection config, hands it to a
 :class:`LingYunApiClient`, and lists backends via the client.
-
 Self-registers with :class:`ProviderRegistry` so that
 ``ProviderRegistry.get("lingyun")`` resolves once this package is
 imported.
 """
-
 from __future__ import annotations
-
 from ...provider.base import Provider
 from ...provider.registry import ProviderRegistry
 from ...backend.base import Backend
@@ -18,14 +14,12 @@ from ...backend.configuration import BackendConfiguration
 from ...config import ConnectionConfig
 from ...exceptions import BackendNotFoundError
 from ...transport.factory import create_transport
-from ...types import BackendStatus
+from ...types import BackendStatus, BackendType
 from .backend import LingYunQuantumBackend, LingYunSimulatorBackend
 from .client import LingYunApiClient
 
-
 class LingYunProvider(Provider):
     """Cloud-provider implementation for LingYun (凌云)."""
-
     def __init__(
         self,
         connection: ConnectionConfig,
@@ -41,7 +35,6 @@ class LingYunProvider(Provider):
             # 上层url为None时，使用指定地址
             default_url = "http://0.0.0.0:8000"
             self.connection = ConnectionConfig.from_url(default_url, **connection.extra)
-
         self._transport = create_transport(self.connection)
         self._transport.open()
         self._api_client = self._create_api_client()
@@ -56,6 +49,64 @@ class LingYunProvider(Provider):
             token=self.token,
         )
 
+    @staticmethod
+    def _parse_lingyun_config(raw_api_data: dict, api_client: LingYunApiClient) -> BackendConfiguration:
+        """凌云专属配置解析，强制填充basis_gates，杜绝None"""
+        backend_name = raw_api_data["code"]
+        n_qubits = raw_api_data["bitWidth"]
+        raw_status = raw_api_data.get("status", "unknown")
+        try:
+            status = BackendStatus(raw_status)
+        except ValueError:
+            status = BackendStatus.UNKNOWN
+
+        if raw_api_data.get("labels") == "1":
+            backend_type = BackendType.quantum_computer
+        else:
+            backend_type = BackendType.simulator
+        simulator = backend_type == BackendType.simulator
+
+        basis_gates = []
+        gate_list = raw_api_data.get("baseGate", [])
+
+        if gate_list:
+            for gate in gate_list:
+                g_name = gate.get("qcis", "").lower()
+                if g_name == "i":
+                    g_name = "id"
+                elif g_name == "m":
+                    g_name = "measure"
+                basis_gates.append(g_name)
+        else:
+            print("[INFO] LingYun backend {} has no basis gates in API response; using default.".format(backend_name))
+        #     basis_gates = ["id", "rz", "h", "cz", "measure", "barrier"]
+
+        coupling_map = raw_api_data.get("coupler_map", [])
+        if not isinstance(coupling_map, list):
+            coupling_map = []
+
+        derivative_gates = []
+        for gate in raw_api_data['derivativeGate']:
+            name = gate['qcis'].lower()
+            if name not in basis_gates:
+                derivative_gates.append(name)
+
+        cfg_build_dict = {
+            "backend_name": backend_name,
+            "n_qubits": n_qubits,
+            "simulator": simulator,
+            "coupling_map": coupling_map,
+            "basis_gates": basis_gates,
+            "status": BackendStatus.RUNNING,
+            "data": raw_api_data,
+        }
+        cfg = BackendConfiguration.from_dict(cfg_build_dict)
+        cfg.data["derivative_gates"] = derivative_gates
+        cfg.data["backend_type"] = backend_type
+        cfg.data["backend_id"] = raw_api_data.get("id", backend_name)
+        return cfg
+
+
     def backends(
         self,
         *,
@@ -65,12 +116,9 @@ class LingYunProvider(Provider):
     ) -> list[Backend]:
         """List LingYun backends with optional filtering."""
         raw_backends = self._api_client.get_backends()
-        # print("[INFO] provider.py raw_backends: ", raw_backends)
-
         result: list[Backend] = []
         for data in raw_backends:
-            cfg = BackendConfiguration.from_api(data, self._api_client)
-
+            cfg = self._parse_lingyun_config(data, self._api_client)
             if online and cfg.status not in (
                 BackendStatus.RUNNING,
                 BackendStatus.ONLINE,
@@ -81,7 +129,6 @@ class LingYunProvider(Provider):
                 continue
             if name is not None and cfg.backend_name != name:
                 continue
-            # print("[INFO] provider.py cfg.simulator: ", cfg.simulator)
 
             if cfg.simulator:
                 result.append(
@@ -97,8 +144,6 @@ class LingYunProvider(Provider):
                         api_client=self._api_client,
                     )
                 )
-
-        # print("[INFO] provider.py result: ", result)
         return result
 
     def backend(self, name: str) -> Backend:
@@ -106,7 +151,7 @@ class LingYunProvider(Provider):
         for data in self._api_client.get_backends():
             if data.get("code") != name:
                 continue
-            cfg = BackendConfiguration.from_api(data, self._api_client)
+            cfg = self._parse_lingyun_config(data, self._api_client)
             if cfg.simulator:
                 return LingYunSimulatorBackend(
                     configuration=cfg,
@@ -117,7 +162,6 @@ class LingYunProvider(Provider):
                 api_client=self._api_client,
             )
         raise BackendNotFoundError(name)
-
 
 # Self-register once the module is imported.
 ProviderRegistry.register(LingYunProvider)
