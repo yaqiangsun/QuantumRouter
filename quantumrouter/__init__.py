@@ -94,7 +94,7 @@ from .provider import (
 # Import the providers package (but NOT any vendor subpackage) so
 # that ``quantrouter.providers.lingyun`` triggers the lazy
 # ``__getattr__`` in providers/__init__.py. Each vendor subpackage
-# pulls in heavy, vendor-specific third-party deps (qiskit, cqlib,
+# pulls in heavy, vendor-specific third-party deps (qiskit,
 # numpy, ...). Importing them eagerly would force every user to
 # install every vendor's deps even if they only use one.
 #

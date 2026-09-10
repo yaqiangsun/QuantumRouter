@@ -95,7 +95,7 @@ via `ProviderRegistry.register(...)`. The transport and backend layers
 stay untouched.
 
 Vendor packages are imported lazily: `import quantumrouter` does not pull
-in any vendor's third-party deps (qiskit, cqlib, ...). A provider is
+in any vendor's third-party deps (qiskit, ...). A provider is
 loaded the first time it is referenced — explicitly via
 `from quantumrouter.providers import lingyun` as _lingyun, or implicitly
 through `quantumrouter.create_provider("lingyun", ...)`. Use only the

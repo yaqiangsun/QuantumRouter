@@ -9,7 +9,7 @@ The vendor-agnostic ``Provider`` abstract base, the registry, and the
 sibling to :mod:`quantumrouter.backend` and :mod:`quantumrouter.transport`.
 
 Vendor subpackages are imported **lazily**. Each one pulls in heavy,
-vendor-specific third-party deps (``qiskit``, ``cqlib``, ``numpy`` ...)
+vendor-specific third-party deps (``qiskit``, ``numpy`` ...)
 at import time. Loading them eagerly here would force a user who only
 wants LingYun to also install IBM's, TianYan's, and Wuyue's deps.
 
