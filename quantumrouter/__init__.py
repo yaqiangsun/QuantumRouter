@@ -44,7 +44,7 @@ Working with a PCIe-attached card instead of a cloud service::
 
 from __future__ import annotations
 
-__version__ = "0.0.3"
+__version__ = "0.0.4"
 
 # --- Version ------------------------------------------------------------
 # (defined above for hatchling dynamic-version discovery)
