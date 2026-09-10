@@ -83,10 +83,9 @@ class WuYueJob(JobV1):
             "qobj_id": id(self._job_id),
             "job_id": self._job_id,
             "success": True,
-            'status': JobStatus.DONE,
+            "status": JobStatus.DONE,
             "results": results,
         })
-
 
 
     def cancel(self):

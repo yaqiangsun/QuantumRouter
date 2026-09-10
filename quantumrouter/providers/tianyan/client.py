@@ -29,7 +29,6 @@ class TianYanApiClient:
 
     def get_backends(self) -> list[dict]:
         """List available quantum backends for the current user."""
-        # two ways both ok
         # provider = TianYanProvider(token=self.token)
         # tmp = provider.backends()
 
@@ -41,7 +40,9 @@ class TianYanApiClient:
 
     def get_quantum_computer_config(self, computer_id: str) -> dict:
         """Fetch the configuration overview of a quantum computer."""
-        return self._platform.get_computer_overview(machine_id=computer_id) or {}
+        adapter_client = CqlibApiClient(token=self.token)
+        computer_config = adapter_client.get_quantum_computer_config(computer_id=computer_id)
+        return computer_config or {}
 
 
     def get_quantum_machine_config(self, computer_code: str) -> dict:
