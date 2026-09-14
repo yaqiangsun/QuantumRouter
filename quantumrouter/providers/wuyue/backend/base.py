@@ -97,7 +97,7 @@ class WuYueBackend(Backend):
             )
             raw_result_list.append(raw_res)
             task_id_list.append(raw_res._task_id)
-        print("[INFO] base.py run returned task IDs: ", task_id_list)
+        # print("[INFO] base.py run returned task IDs: ", task_id_list)
 
         return WuYueJob(
             backend_inst=self,

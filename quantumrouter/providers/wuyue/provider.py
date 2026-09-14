@@ -46,7 +46,7 @@ class WuYueProvider(Provider):
     ) -> list[Backend]:
         """List WuYue backends with optional filtering."""
         raw_backends = self._api_client.get_backends()
-        print("[INFO] provider.py raw_backends: ", raw_backends)
+        # print("[INFO] provider.py raw_backends: ", raw_backends)
         result: list[Backend] = []
         for data in raw_backends:
             cfg = BackendConfiguration.from_api(data, self._api_client)
@@ -61,7 +61,7 @@ class WuYueProvider(Provider):
                 continue
             if name is not None and cfg.backend_name != name:
                 continue
-            print("[INFO] provider.py cfg.simulator: ", cfg.simulator)
+            # print("[INFO] provider.py cfg.simulator: ", cfg.simulator)
             if cfg.simulator:
                 result.append(
                     WuYueSimulatorBackend(
@@ -76,7 +76,7 @@ class WuYueProvider(Provider):
                         api_client=self._api_client,
                     )
                 )
-        print("[INFO] provider.py result: ", result)
+        # print("[INFO] provider.py result: ", result)
         return result
 
     def backend(self, name: str) -> Backend:

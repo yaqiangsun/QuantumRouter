@@ -113,7 +113,7 @@ class LingYunBackend(Backend):
             circuits = [pm.run(qc) for qc in circuits]
 
         trans_str_list = [qiskit_to_qasm(circ) for circ in circuits]
-        print("[INFO][base.py] trans_str_list: ", trans_str_list)
+        # print("[INFO][base.py] trans_str_list: ", trans_str_list)
         task_ids = self._api_client.submit_job(
             trans_str_list,
             machine=self.configuration.backend_name,
@@ -322,7 +322,7 @@ class LingYunSimulatorBackend(LingYunBackend):
 
         derivative_gates = self.configuration.data["derivative_gates"]
         gates = set(self.configuration.basis_gates + derivative_gates)
-        print("[INFO] basis_gates contains h ?", self.configuration.basis_gates)
+        # print("[INFO] basis_gates contains h ?", self.configuration.basis_gates)
 
         ins_mapping_list = {
             'rx': [standard_gates.RXGate(Parameter('theta')), q_props],

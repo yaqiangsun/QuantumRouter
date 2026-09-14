@@ -131,7 +131,7 @@ class TianYanBackend(Backend):
             pm = generate_preset_pass_manager(backend=self)
             circuits = [pm.run(qc) for qc in circuits]
         trans_cqlib_list = [qiskit_to_cqlib(circ) for circ in circuits]
-        print("[INFO][base.py] trans_cqlib_list: ", trans_cqlib_list)
+        # print("[INFO][base.py] trans_cqlib_list: ", trans_cqlib_list)
         circuit_str_list = [c.as_str() for c in trans_cqlib_list]
         task_ids = self._api_client.submit_job(
             circuit_str_list,

@@ -74,7 +74,7 @@ class WuYueJob(JobV1):
                     'memory': memory_list
                 }
             })
-        print("[INFO] WuYueJob.result() returning Qiskit Result object with results: ", results)
+        # print("[INFO] WuYueJob.result() returning Qiskit Result object with results: ", results)
 
         backend_name = self._backend_obj.configuration.backend_name
         return Result.from_dict({

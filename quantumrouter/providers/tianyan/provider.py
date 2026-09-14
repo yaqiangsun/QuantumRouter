@@ -139,7 +139,7 @@ class TianYanProvider(Provider):
     ) -> list[Backend]:
         """List TianYan backends with optional filtering."""
         raw_backends = self._api_client.get_backends()
-        print("[INFO] provider.py raw_backends: ", raw_backends)
+        # print("[INFO] provider.py raw_backends: ", raw_backends)
         result: list[Backend] = []
         for data in raw_backends:
             # Use tianyan exclusive parser instead of universal base from_api
@@ -149,12 +149,12 @@ class TianYanProvider(Provider):
                 continue
             if name is not None and cfg.backend_name != name:
                 continue
-            print("[INFO] provider.py cfg.simulator: ", cfg.simulator)
+            # print("[INFO] provider.py cfg.simulator: ", cfg.simulator)
             if cfg.simulator:
-                print("[INFO] provider.py This is a simulator", TianYanSimulatorBackend(
-                    configuration=cfg,
-                    api_client=self._api_client,
-                ))
+                # print("[INFO] provider.py This is a simulator", TianYanSimulatorBackend(
+                #     configuration=cfg,
+                #     api_client=self._api_client,
+                # ))
                 result.append(
                     TianYanSimulatorBackend(
                         configuration=cfg,
@@ -162,17 +162,17 @@ class TianYanProvider(Provider):
                     )
                 )
             else:
-                print("[INFO] provider.py This is not a simulator", TianYanQuantumBackend(
-                    configuration=cfg,
-                    api_client=self._api_client,
-                ))
+                # print("[INFO] provider.py This is not a simulator", TianYanQuantumBackend(
+                #     configuration=cfg,
+                #     api_client=self._api_client,
+                # ))
                 result.append(
                     TianYanQuantumBackend(
                         configuration=cfg,
                         api_client=self._api_client,
                     )
                 )
-        print("[INFO] provider.py result: ", result)
+        # print("[INFO] provider.py result: ", result)
         return result
 
     def backend(self, name: str) -> Backend:

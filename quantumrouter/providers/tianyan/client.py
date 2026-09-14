@@ -47,7 +47,7 @@ class TianYanApiClient:
 
     def get_quantum_machine_config(self, computer_code: str) -> dict:
         """Download the physical machine data."""
-        print("[client.py] get_quantum_machine_config computer_code: ", computer_code)
+        # print("[client.py] get_quantum_machine_config computer_code: ", computer_code)
         return self._platform.download_config(machine=computer_code) or {}
 
 

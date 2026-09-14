@@ -78,7 +78,8 @@ class LingYunProvider(Provider):
                     g_name = "measure"
                 basis_gates.append(g_name)
         else:
-            print("[INFO] LingYun backend {} has no basis gates in API response; using default.".format(backend_name))
+            # print("[INFO] LingYun backend {} has no basis gates in API response; using default.".format(backend_name))
+            pass
         #     basis_gates = ["id", "rz", "h", "cz", "measure", "barrier"]
 
         coupling_map = raw_api_data.get("coupler_map", [])

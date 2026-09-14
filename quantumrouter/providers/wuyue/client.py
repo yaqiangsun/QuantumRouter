@@ -70,7 +70,7 @@ class WuYueApiClient:
 
             try:
                 resp = self._runner.wuyue_client.api_client.excute(api_params, None, QueryTaskInfoResponse)
-                print(f"[INFO] WuYueClient _fetch_all_engines dto resp: {resp}")
+                # print(f"[INFO] WuYueClient _fetch_all_engines dto resp: {resp}")
                 if resp.code == 1:
                     raw_json = {"code": resp.code, "body": resp.data}
 
@@ -87,22 +87,24 @@ class WuYueApiClient:
                     try:
                         raw_json = json.loads(raw_body_str)
                     except json.JSONDecodeError as json_e:
-                        print(f"[WARN] Raw body is not valid json: {raw_body_str}, err={json_e}")
+                        # print(f"[WARN] Raw body is not valid json: {raw_body_str}, err={json_e}")
+                        pass
                 else:
-                    print("[WARN] Cannot find raw http body field in ServerResponseException")
+                    # print("[WARN] Cannot find raw http body field in ServerResponseException")
+                    pass
 
             if raw_json is None:
-                print("[WARN] Engine list api get no valid response data")
+                # print("[WARN] Engine list api get no valid response data")
                 return []
             if raw_json.get("code") != 1:
-                print(f"[WARN] Fetch engine list failed, code={raw_json.get('code')}, msg={raw_json.get('msg')}")
+                # print(f"[WARN] Fetch engine list failed, code={raw_json.get('code')}, msg={raw_json.get('msg')}")
                 return []
 
             raw_engine_body = raw_json.get("body", [])
             return raw_engine_body
 
         except Exception as e:
-            print(f"[ERROR] Exception occurred when fetching engine resource: {str(e)}")
+            # print(f"[ERROR] Exception occurred when fetching engine resource: {str(e)}")
             traceback.print_exc()
             return []
 
@@ -115,7 +117,7 @@ class WuYueApiClient:
         """
         # Only call semantic abstract method, NO hardcode url/api path anywhere
         raw_engine_data_list = self._fetch_all_engines()
-        print("[INFO] client.py get_backends raw_engine_data_list: ", raw_engine_data_list, len(raw_engine_data_list))
+        # print("[INFO] client.py get_backends raw_engine_data_list: ", raw_engine_data_list, len(raw_engine_data_list))
         standardized_backend_list: List[dict] = []
 
         for engine_item in raw_engine_data_list:
@@ -161,7 +163,7 @@ class WuYueApiClient:
         task_ids = []
         target_qubit_num = extra_args.pop("qubits", 0)
         for circ_text in circuits:
-            print("[INFO] CLIENT.py----qubit_count:", target_qubit_num)
+            # print("[INFO] CLIENT.py----qubit_count:", target_qubit_num)
             run_res = self._runner.run(
                 qc=circ_text,
                 device_id=machine,
@@ -175,7 +177,7 @@ class WuYueApiClient:
 
     def query_job(self, task_ids: List[str]) -> List[dict]:
         """Batch query remote cloud task status, counts, probability & amplitude results."""
-        print(f"[INFO] WuYueClient INTO query_job task_ids={task_ids}")
+        # print(f"[INFO] WuYueClient INTO query_job task_ids={task_ids}")
         result_set = []
         for tid in task_ids:
             resp: QueryTaskInfoResponse = self._runner.wuyue_client.query_task_info(tid)
@@ -188,7 +190,7 @@ class WuYueApiClient:
                     "error_code": resp.error_code,
                     "message": resp.msg
                 })
-        print(f"[INFO] WuYueClient OUT query_job result {result_set}")
+        # print(f"[INFO] WuYueClient OUT query_job result {result_set}")
         return result_set
 
     def run_circuit_object(self, qc, device_id: str, shots: int = 1024, timeout: int = 100, qubits: int = None, **kwargs):
