@@ -7,6 +7,13 @@ from qiskit.result import Result
 from .client import LingYunApiClient
 
 
+# 轮询等待结果的上限（秒）。传 None 表示无限等待。
+# 服务端在「线路被拓扑校验拦掉」时会把 resultStatus 置为空列表，并把该任务
+# 从 result/find 的返回列表里过滤掉 —— 客户端因此无法把它和「仍在排队」区分开，
+# 如果没有上限，result() 就会退化成死循环。
+DEFAULT_RESULT_TIMEOUT: float | None = 300.0
+
+
 class LingYunJob(JobV1):
     """
     A class representing a job executed on the LingYun quantum computing platform.
@@ -58,8 +65,11 @@ class LingYunJob(JobV1):
             return JobStatus.RUNNING
         return JobStatus.QUEUED
 
-    def result(self) -> Result:
+    def result(self, timeout: float | None = DEFAULT_RESULT_TIMEOUT) -> Result:
         """Retrieves the results of the job.
+
+        Args:
+            timeout: 轮询上限（秒）。超过则抛异常而不是无限等待；传 None 表示无限等待。
         Returns:
             Result: The results of the job, including counts and memory data.
     
@@ -67,15 +77,39 @@ class LingYunJob(JobV1):
             Exception: If the job fails to complete or retrieve results.
         """
         task_id_arr = self._job_id.split(',')
+        deadline = None if timeout is None else time.monotonic() + timeout
         while True:
             current_state = self.status()
             if current_state == JobStatus.DONE:
                 break
+            if deadline is not None and time.monotonic() >= deadline:
+                raise Exception(
+                    f"等待任务 {task_id_arr} 的结果超时（{timeout:g}s）。"
+                    "最常见的原因是线路没有通过服务端的真机耦合器拓扑校验："
+                    "服务端会跳过仿真并把 resultStatus 置空，同时把该任务从 "
+                    "result/find 的返回里过滤掉，于是客户端分不清"
+                    "「已判定失败」和「仍在排队」。"
+                    "请把线路映射到真实存在的耦合器上，例如 "
+                    "transpile(qc, backend=backend, initial_layout=[4, 10], "
+                    "optimization_level=0, layout_method='trivial')；"
+                    "若确实需要长等待，请显式传 timeout=None。"
+                )
             time.sleep(1)
 
         experiment_result_list = []
         raw_task_items = self._api_client.query_job(task_id_arr)
         for task_item in raw_task_items:
+            # 服务端对「拓扑校验不通过 / 仿真异常」的任务会返回空 resultStatus。
+            # 这里必须显式报错，否则后面取 resultStatus[0] 会抛 IndexError，
+            # 报错信息完全看不出真正原因。
+            if not (task_item.get("resultStatus") or []):
+                raise Exception(
+                    f"任务 {task_item.get('experimentTaskId')} 已结束，但 resultStatus 为空："
+                    "线路未通过服务端的真机耦合器拓扑校验（check_qc_topology），仿真被跳过。"
+                    "请把线路映射到真实存在的耦合器上，例如 "
+                    "transpile(qc, backend=backend, initial_layout=[4, 10], "
+                    "optimization_level=0, layout_method='trivial')。"
+                )
             enable_readout_cal = self.metadata.get("readout_calibration", True)
             shot_total = self.metadata.get("shots", len(task_item["resultStatus"]) - 1)
 

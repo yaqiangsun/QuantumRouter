@@ -4,6 +4,7 @@ This module holds the two backend subclasses
 that bind the generic backend contract to the LingYun REST surface.
 """
 from __future__ import annotations
+import warnings
 from typing import Any, Optional, List
 from ....backend.base import Backend
 from ....backend.configuration import BackendConfiguration
@@ -35,6 +36,7 @@ class LingYunBackend(Backend):
         self._backend_config = configuration
         self._api_client = api_client
         self._target: Optional[Target] = None
+        self._machine_config: Optional[dict] = None
         self.simulator = configuration.simulator
 
     @property
@@ -303,6 +305,15 @@ class LingYunSimulatorBackend(LingYunBackend):
         api_client: LingYunApiClient,
     ) -> None:
         super().__init__(configuration=configuration, api_client=api_client)
+        # ★ 模拟机也要按真机耦合表约束，否则 auto transpile 没有拓扑可用，
+        #   只会给 trivial layout（Q0/Q1），被服务端的拓扑校验拦掉。
+        #   取不到配置时退化为无约束，保持旧行为可用。
+        try:
+            self._machine_config = self._api_client.get_quantum_machine_config(
+                self.configuration.backend_name
+            )
+        except Exception:
+            self._machine_config = None
         target = Target(
             num_qubits=configuration.n_qubits,
             description=configuration.backend_name,
@@ -310,7 +321,23 @@ class LingYunSimulatorBackend(LingYunBackend):
         self._update_gates(target)
         self._target = target
 
-    
+    def _coupler_properties(self) -> Optional[dict]:
+        """从机器配置里取真机耦合表，返回 ``{(i, j): None}`` 形式的 qargs-properties。
+
+        取不到配置时返回 ``None``，调用方退化为全连接（旧行为）。
+        """
+        if not self._machine_config:
+            return None
+        coupler_map = (self._machine_config.get("overview") or {}).get("coupler_map")
+        if not coupler_map:
+            return None
+        props: dict = {}
+        for pair in coupler_map.values():
+            i, j = int(pair[0][1:]), int(pair[1][1:])
+            props[(i, j)] = None
+            props[(j, i)] = None
+        return props or None
+
     def _update_gates(self, target):
         """Updates the gates in the target for the simulator backend.
         This method adds all supported gates (single-qubit, two-qubit, and measurement gates)
@@ -339,9 +366,17 @@ class LingYunSimulatorBackend(LingYunBackend):
             'td': [standard_gates.TdgGate(), q_props],
             'measure': [Measure(), q_props],
         }
+        # 双比特门优先按真机耦合表注册；拿不到配置才退回 {None: None}（全连接）
+        two_q_props = self._coupler_properties()
+        if two_q_props is None:
+            two_q_props = {None: None}
+            warnings.warn(
+                "未能获取真机耦合表，双比特门按全连接处理；"
+                "auto transpile 可能选出服务端不认可的比特对。"
+            )
         ins_mapping_dict = {
-            'cz': {'instruction': CZGate(), 'properties': {None: None}},
-            'cx': {'instruction': CXGate(), 'properties': {None: None}},
+            'cz': {'instruction': CZGate(), 'properties': dict(two_q_props)},
+            'cx': {'instruction': CXGate(), 'properties': dict(two_q_props)},
             'barrier': {'instruction': Barrier, 'name': 'barrier'}
         }
         for gate in gates:
