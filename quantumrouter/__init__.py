@@ -40,6 +40,12 @@ Working with a PCIe-attached card instead of a cloud service::
     provider = quantumrouter.create_provider(
         backend="xxx", url="pcie:///dev/quantum0",
     )
+
+Sampling circuits through Qiskit's primitives interface::
+
+    sampler = quantumrouter.Sampler(b, default_shots=4096)
+    result = sampler.run([(circuit, params)]).result()
+    counts = result[0].data.meas.get_counts()
 """
 
 from __future__ import annotations
@@ -106,6 +112,21 @@ from .provider import (
 #     quantumrouter.providers.lingyun
 from . import providers  # noqa: F401 - exposes lazy __getattr__ on attribute access
 
+# --- Primitives ---------------------------------------------------------
+# ``Sampler`` adapts a QuantumRouter backend to Qiskit's ``BaseSamplerV2``
+# interface so user code — including libraries such as
+# ``qiskit-machine-learning`` — can treat a backend like any other Qiskit
+# backend.
+#
+# This import is eager, unlike the vendor subpackages above. The vendor
+# laziness exists to avoid forcing *optional, vendor-specific* deps
+# (``cqlib-adapter``, ``wuyue``, ...) on users who don't need them. The
+# primitives adapter has no such deps: it needs only ``qiskit`` and
+# ``numpy``, and ``qiskit`` is already imported eagerly by
+# :mod:`quantumrouter.backend` (and pulls in ``qiskit.primitives``
+# itself). Laziness would buy nothing here.
+from .sampler import Sampler
+
 __all__ = [
     "__version__",
     # Errors
@@ -139,4 +160,6 @@ __all__ = [
     "create_provider",
     "register_provider",
     "get_provider",
+    # Primitives
+    "Sampler",
 ]

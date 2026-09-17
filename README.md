@@ -121,6 +121,7 @@ The `examples/` directory contains runnable, vendor-specific demos:
 | [basic_usage_wuyue.py](examples/basic_usage_wuyue.py) | WuYue | WuYue mobile cloud flow |
 | [multi_vendor.py](examples/multi_vendor.py) | LingYun + IBM | switch vendors with one parameter |
 | [pcie_transport.py](examples/pcie_transport.py) | LingYun | select a PCIe transport via URL scheme |
+| [nn/sampler_train.py](examples/nn/sampler_train.py) | LingYun | train a `SamplerQNN` through `quantumrouter.Sampler` |
 
 Run any of them with, for example:
 
@@ -131,6 +132,9 @@ python examples/basic_usage.py
 Most examples accept connection details from environment variables
 (`LINGYUN_TOKEN`, `LINGYUN_URL`, `IBM_QUANTUM_TOKEN`, ...) — set the ones you
 need before running.
+
+The `nn/` examples additionally need `qiskit-machine-learning`
+(`pip install qiskit-machine-learning`).
 
 ## Architecture
 
