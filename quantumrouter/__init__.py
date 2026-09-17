@@ -50,7 +50,7 @@ Sampling circuits through Qiskit's primitives interface::
 
 from __future__ import annotations
 
-__version__ = "0.0.5"
+__version__ = "0.0.6"
 
 # --- Version ------------------------------------------------------------
 # (defined above for hatchling dynamic-version discovery)
