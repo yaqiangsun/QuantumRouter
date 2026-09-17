@@ -45,13 +45,11 @@ class WuYueBackend(Backend):
         shots: int = 1000,
         **kwargs: Any,
     ) -> list[str]:
-        language = kwargs.get("language", "qcis")
         timeout = kwargs.get("timeout", 100)
         return self.api_client.submit_job(
             circuits=circuits,
             machine=self.configuration.backend_name,
             shots=shots,
-            language=language,
             timeout=timeout,
             **kwargs
         )
