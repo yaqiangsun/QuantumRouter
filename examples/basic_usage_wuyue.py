@@ -15,14 +15,14 @@ from pathlib import Path
 from qiskit import QuantumCircuit
 # Auto add project root path for local run without install
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import quantumrouter  # noqa: E402
+import quantumrouter as qr  # noqa: E402
 
 
 def main() -> None:
     # ------------------------------------------------------------------ #
     # 1. Create WuYue provider via unified create_provider entry
     # ------------------------------------------------------------------ #
-    provider = quantumrouter.create_provider(
+    provider = qr.create_provider(
             backend="wuyue",
             token=os.environ.get("WUYUE_TOKEN", "xxxxxxxxx+xxxxxxxxxxx"),
         )
@@ -32,7 +32,7 @@ def main() -> None:
     # ------------------------------------------------------------------ #
     try:
         backends = provider.backends(online=True)
-    except quantumrouter.QuantumRouterError as exc:
+    except qr.QuantumRouterError as exc:
         print(f"Connect WuYue cloud failed:\n  {exc}")
         print("Check AK/SK validity & network access to WuYue endpoint.")
         return

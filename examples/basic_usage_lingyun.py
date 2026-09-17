@@ -25,7 +25,7 @@ from pathlib import Path
 # ``python examples/basic_usage.py``
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import quantumrouter  # noqa: E402 - path adjusted above
+import quantumrouter as qr  # noqa: E402 - path adjusted above
 import time
 
 def main() -> None:
@@ -33,9 +33,9 @@ def main() -> None:
     # Build a provider from a connection string.
     # The transport (HTTP here) is inferred from the URL scheme.
     # ------------------------------------------------------------------ #
-    provider = quantumrouter.create_provider(
+    provider = qr.create_provider(
         backend="lingyun",
-        url="http://xx.xx.xx.xx:8000", 
+        url="http://127.0.0.1:8000", 
         token=os.environ.get("LINGYUN_TOKEN", ""),
     )
 
@@ -44,7 +44,7 @@ def main() -> None:
     # ------------------------------------------------------------------ #
     try:
         backends = provider.backends(online=True)
-    except quantumrouter.QuantumRouterError as exc:
+    except qr.QuantumRouterError as exc:
         print(f"Could not reach the server:\n  {exc}")
         print("\nSet LINGYUN_URL to a running simulation server and retry.")
         return

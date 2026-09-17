@@ -27,7 +27,7 @@ from qiskit import transpile
 # ``python examples/basic_usage.py``
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import quantumrouter  # noqa: E402 - path adjusted above
+import quantumrouter as qr  # noqa: E402 - path adjusted above
 import time
 
 def main() -> None:
@@ -35,7 +35,7 @@ def main() -> None:
     # Build a provider from a connection string.
     # The transport (HTTP here) is inferred from the URL scheme.
     # ------------------------------------------------------------------ #
-    provider = quantumrouter.create_provider(
+    provider = qr.create_provider(
         backend="tianyan",
         token=os.environ.get("TianYan_TOKEN", "xxxxxxxxxx"),
     )
@@ -45,7 +45,7 @@ def main() -> None:
     # ------------------------------------------------------------------ #
     try:
         backends = provider.backends(online=True)
-    except quantumrouter.QuantumRouterError as exc:
+    except qr.QuantumRouterError as exc:
         print(f"Could not reach the server:\n  {exc}")
         print("\nSet TianYan_URL to a running simulation server and retry.")
         return

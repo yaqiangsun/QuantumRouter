@@ -52,49 +52,6 @@ class BackendConfiguration:
         self.coupling_map = coupling_map
         self.basis_gates = basis_gates
 
-    @classmethod
-    def from_api(
-        cls,
-        data: dict,
-        api_client: Any = None,  # accepted for symmetry, unused by default
-    ) -> "BackendConfiguration":
-        """Base universal parser for general platforms(LingYun/WuYue).
-        TianYan will override this logic inside its provider.
-        """
-        # print("[INFO] configuration.py data.keys(): ", data.keys())
-        
-        try:
-            n_qubits = data['bitWidth']
-        except KeyError as exc:
-            raise QuantumRouterError(
-                f"Backend API response missing 'bitWidth': {data!r}"
-            ) from exc
-        
-        try:
-            backend_name = data["code"]
-        except KeyError as exc:
-            raise QuantumRouterError(
-                f"Backend API response missing 'code': {data!r}"
-            ) from exc
-        if data['labels'] == '1':
-            backend_type = BackendType.quantum_computer
-        else:
-            backend_type = BackendType.simulator
-        simulator = backend_type == BackendType.simulator
-        raw_status = data.get("status", "unknown")
-        try:
-            status = BackendStatus(raw_status)
-        except ValueError:
-            status = BackendStatus.UNKNOWN
-        return cls(
-            backend_name=backend_name,
-            simulator=simulator,
-            status=status,
-            data=data,
-            n_qubits=n_qubits,
-            coupling_map=None,
-            basis_gates=None
-        )
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "BackendConfiguration":

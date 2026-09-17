@@ -29,6 +29,7 @@ gate_parameters = {
     'xy2m': 1,
 }
 
+
 class TianYanProvider(Provider):
     """Cloud-provider implementation for TianYan."""
     def __init__(
@@ -55,12 +56,10 @@ class TianYanProvider(Provider):
         disabled_couplers = [g for g in raw_api_data['disabledCouplers'].split(',') if g]
         backend_id = raw_api_data['id']
         n_qubits = raw_api_data['bitWidth']
-
         if raw_api_data['labels'] == '1':
             backend_type = BackendType.quantum_computer
         else:
             backend_type = BackendType.simulator
-
         coupling_map = []
         if backend_type == BackendType.quantum_computer:
             qpu = api_client.get_quantum_computer_config(backend_id)
@@ -75,7 +74,6 @@ class TianYanProvider(Provider):
         else:
             qubits = list(range(n_qubits))
             coupling_map = [[i, j] for i in range(min(n_qubits, 100)) for j in range(i)]
-
         basis_gates = []
         derivative_gates = []
         gates = []
@@ -100,13 +98,14 @@ class TianYanProvider(Provider):
                 gate_coupling_map = [[q] for q in qubits]
             param_cnt = gate_parameters.get(name, 0)
             gates.append((name, [f'p_{i}' for i in range(param_cnt)], gate_coupling_map))
-
         for gate in raw_api_data['derivativeGate']:
             name = gate['qcis'].lower()
             if name not in basis_gates:
                 derivative_gates.append(name)
 
-        # assemble all tianyan private & standard fields
+        construct_data = {'derivative_gates': derivative_gates,
+                          'backend_id': backend_id,
+                          'backend_type': backend_type}
         cfg_build_dict = {
             "backend_name": raw_api_data['code'],
             "n_qubits": n_qubits,
@@ -114,20 +113,10 @@ class TianYanProvider(Provider):
             "coupling_map": coupling_map,
             "basis_gates": basis_gates,
             "status": BackendStatus.RUNNING,
-            "data": raw_api_data,
+            "data": construct_data,
         }
         cfg = BackendConfiguration.from_dict(cfg_build_dict)
-        # Store all tianyan private metadata inside raw_data, keep original fields access
-        cfg.data["backend_id"] = backend_id
-        cfg.data["credits_required"] = raw_api_data['isToll'] == 2
-        cfg.data["online_date"] = datetime.strptime(raw_api_data['createTime'], '%Y-%m-%d %H:%M:%S')
-        cfg.data["display_name"] = raw_api_data['name']
-        cfg.data["description"] = ""
-        cfg.data["derivative_gates"] = derivative_gates
-        cfg.data["gate_config_list"] = gates
-        cfg.data["backend_type"] = backend_type
-        cfg.data["conditional"] = False
-        cfg.data["local"] = False
+
         return cfg
 
     def backends(
@@ -140,40 +129,32 @@ class TianYanProvider(Provider):
         """List TianYan backends with optional filtering."""
         raw_backends = self._api_client.get_backends()
         # print("[INFO] provider.py raw_backends: ", raw_backends)
+
         result: list[Backend] = []
         for data in raw_backends:
-            # Use tianyan exclusive parser instead of universal base from_api
             cfg = self._parse_tianyan_config(data, self._api_client)
-
             if simulator is not None and cfg.simulator != simulator:
                 continue
             if name is not None and cfg.backend_name != name:
                 continue
-            # print("[INFO] provider.py cfg.simulator: ", cfg.simulator)
+
             if cfg.simulator:
-                # print("[INFO] provider.py This is a simulator", TianYanSimulatorBackend(
-                #     configuration=cfg,
-                #     api_client=self._api_client,
-                # ))
-                result.append(
-                    TianYanSimulatorBackend(
-                        configuration=cfg,
-                        api_client=self._api_client,
-                    )
+                sim_backend = TianYanSimulatorBackend(
+                    configuration=cfg,
+                    api_client=self._api_client,
                 )
+
+                result.append(sim_backend)
             else:
-                # print("[INFO] provider.py This is not a simulator", TianYanQuantumBackend(
-                #     configuration=cfg,
-                #     api_client=self._api_client,
-                # ))
-                result.append(
-                    TianYanQuantumBackend(
-                        configuration=cfg,
-                        api_client=self._api_client,
-                    )
+                qpu_backend = TianYanQuantumBackend(
+                    configuration=cfg,
+                    api_client=self._api_client,
                 )
+
+                result.append(qpu_backend)
         # print("[INFO] provider.py result: ", result)
         return result
+
 
     def backend(self, name: str) -> Backend:
         """Retrieve a single TianYan backend by name."""
