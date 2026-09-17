@@ -91,7 +91,7 @@ def main() -> None:
     circuit, input_params, weight_params = qnn_circuit(
         ansatz=real_amplitudes(NUM_INPUTS, reps=1)
     )
-    circuit.measure_all()
+    # circuit.measure_all()
 
     # ------------------------------------------------------------------ #
     # 3. 组装 SamplerQNN 和分类器。
