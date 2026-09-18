@@ -47,7 +47,7 @@ from dotenv import load_dotenv  # noqa: E402
 
 SEED = 42
 NUM_INPUTS = 2
-NUM_SAMPLES = 20
+NUM_SAMPLES = 8
 MAX_ITER = 30
 
 
@@ -77,12 +77,26 @@ def main() -> None:
     #    StatevectorSampler 之类顶替，那样线路会在本地状态向量模拟器上跑，
     #    请求根本到不了服务端。
     # ------------------------------------------------------------------ #
+    # lingyun
+    # provider = qr.create_provider(
+    #     backend="lingyun",
+    #     url=os.environ.get("LINGYUN_URL", "http://127.0.0.1:8000"),
+    #     token=os.environ.get("LINGYUN_TOKEN") or None,
+    # )
+    # backend = provider.backend("lingyun_001")
+
+    # tianyan
     provider = qr.create_provider(
-        backend="lingyun",
-        url=os.environ.get("LINGYUN_URL", "http://127.0.0.1:8000"),
-        token=os.environ.get("LINGYUN_TOKEN") or None,
+        backend="tianyan",
+        token=os.environ.get("TianYan_TOKEN")
     )
-    backend = provider.backend("lingyun_001")
+    backend = provider.backend("tianyan_sw")
+    # wuyue
+    # provider = qr.create_provider(
+    #     backend="wuyue",
+    #     token=os.environ.get("WUYUE_TOKEN"),
+    # )
+    # backend = provider.backend("WuYue-QPUSim-FullAmpSim") # 模拟机
     sampler = qr.Sampler(backend)
 
     # ------------------------------------------------------------------ #
