@@ -116,12 +116,10 @@ The `examples/` directory contains runnable, vendor-specific demos:
 
 | Example | Vendor | What it shows |
 |---|---|---|
-| [basic_usage_lingyun.py](examples/basic_usage_lingyun.py) | LingYun | LingYun-specific flow |
-| [basic_usage_tianyan.py](examples/basic_usage_tianyan.py) | TianYan | TianYan-specific flow with transpile |
-| [basic_usage_wuyue.py](examples/basic_usage_wuyue.py) | WuYue | WuYue mobile cloud flow |
+| [basic_usage.py](examples/basic_usage.py) | LingYun / TianYan / WuYue | merged demo — the same code, switch vendor with `--backend` |
 | [multi_vendor.py](examples/multi_vendor.py) | LingYun + IBM | switch vendors with one parameter |
 | [pcie_transport.py](examples/pcie_transport.py) | LingYun | select a PCIe transport via URL scheme |
-| [nn/sampler_train.py](examples/nn/sampler_train.py) | LingYun | train a `SamplerQNN` through `quantumrouter.Sampler` |
+| [nn/sampler_train.py](examples/nn/sampler_train.py) | LingYun / TianYan / WuYue | train a `SamplerQNN` through `quantumrouter.Sampler` — switch vendor with `--backend` |
 
 Run any of them with, for example:
 
