@@ -2,7 +2,7 @@
 
 Run with::
 
-    python examples/nn/sampler_train.py
+    python examples/nn/sampler_train.py --backend lingyun
 
 This example needs a running QuantumRouter simulation server (LingYun).
 Point ``LINGYUN_URL`` at it (defaults to ``http://127.0.0.1:8000``)::
@@ -24,6 +24,7 @@ Requires ``qiskit-machine-learning``::
 
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 from pathlib import Path
@@ -50,6 +51,38 @@ NUM_INPUTS = 2
 NUM_SAMPLES = 8
 MAX_ITER = 30
 
+# backend -> (provider_id, backend_id, env 里读 token 的键名)
+PROVIDERS: dict[str, dict[str, str | None]] = {
+    "lingyun": {
+        "provider": "lingyun",
+        "backend": "lingyun_001",
+        "token_env": "LINGYUN_TOKEN",
+        "url_env": "LINGYUN_URL",
+        "url_default": "http://127.0.0.1:8000",
+    },
+    "tianyan": {
+        "provider": "tianyan",
+        "backend": "tianyan_sw",
+        "token_env": "TianYan_TOKEN",
+    },
+    "wuyue": {
+        "provider": "wuyue",
+        "backend": "WuYue-QPUSim-FullAmpSim",  # 模拟机
+        "token_env": "WUYUE_TOKEN",
+    },
+}
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Train a QNN on a QuantumRouter backend.")
+    parser.add_argument(
+        "--backend",
+        choices=sorted(PROVIDERS),
+        default="lingyun",
+        help=f"要用的后端指令：{' / '.join(sorted(PROVIDERS))}（默认 wuyue）",
+    )
+    return parser.parse_args()
+
 
 def parity(bitstring: int) -> int:
     """把测量结果映射成它的奇偶性 —— QNN 要学的二分类标签。"""
@@ -64,6 +97,7 @@ def build_dataset() -> tuple[np.ndarray, np.ndarray]:
 
 
 def main() -> None:
+    args = parse_args()
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     load_dotenv(os.path.join(project_root, ".env"))
 
@@ -76,27 +110,16 @@ def main() -> None:
     #    用 quantumrouter.Sampler —— 不要用 qiskit.primitives 里的
     #    StatevectorSampler 之类顶替，那样线路会在本地状态向量模拟器上跑，
     #    请求根本到不了服务端。
+    #
+    #    用 --backend 指令切换供应商：lingyun / tianyan / wuyue。
     # ------------------------------------------------------------------ #
-    # lingyun
-    # provider = qr.create_provider(
-    #     backend="lingyun",
-    #     url=os.environ.get("LINGYUN_URL", "http://127.0.0.1:8000"),
-    #     token=os.environ.get("LINGYUN_TOKEN") or None,
-    # )
-    # backend = provider.backend("lingyun_001")
-
-    # tianyan
+    config = PROVIDERS[args.backend]
     provider = qr.create_provider(
-        backend="tianyan",
-        token=os.environ.get("TianYan_TOKEN")
+        backend=config["provider"],
+        url=(os.environ.get(config["url_env"]) or config["url_default"]) if config["url_env"] else None,
+        token=os.environ.get(config["token_env"]) or None,
     )
-    backend = provider.backend("tianyan_sw")
-    # wuyue
-    # provider = qr.create_provider(
-    #     backend="wuyue",
-    #     token=os.environ.get("WUYUE_TOKEN"),
-    # )
-    # backend = provider.backend("WuYue-QPUSim-FullAmpSim") # 模拟机
+    backend = provider.backend(config["backend"])
     sampler = qr.Sampler(backend)
 
     # ------------------------------------------------------------------ #
