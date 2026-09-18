@@ -41,7 +41,7 @@ def main() -> None:
     provider = qr.create_provider(
         backend="lingyun",
         url="http://127.0.0.1:8000",
-        token=os.environ.get("LingYun_TOKEN", ""),
+        token=os.environ.get("LINGYUN_TOKEN", ""),
     )
 
     # ------------------------------------------------------------------ #

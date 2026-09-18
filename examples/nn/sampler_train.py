@@ -43,6 +43,7 @@ from qiskit_machine_learning.optimizers import COBYLA  # noqa: E402
 from qiskit_machine_learning.utils import algorithm_globals  # noqa: E402
 
 import quantumrouter as qr  # noqa: E402
+from dotenv import load_dotenv  # noqa: E402
 
 SEED = 42
 NUM_INPUTS = 2
@@ -63,6 +64,9 @@ def build_dataset() -> tuple[np.ndarray, np.ndarray]:
 
 
 def main() -> None:
+    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    load_dotenv(os.path.join(project_root, ".env"))
+
     algorithm_globals.random_seed = SEED
     X, y01 = build_dataset()
 
