@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 
 # Allow running this example without installing the package:
@@ -26,17 +27,21 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import quantumrouter as qr  # noqa: E402 - path adjusted above
-import time
+from dotenv import load_dotenv
+
 
 def main() -> None:
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    load_dotenv(os.path.join(project_root, ".env"))
+
     # ------------------------------------------------------------------ #
     # Build a provider from a connection string.
     # The transport (HTTP here) is inferred from the URL scheme.
     # ------------------------------------------------------------------ #
     provider = qr.create_provider(
         backend="lingyun",
-        url="http://127.0.0.1:8000", 
-        token=os.environ.get("LINGYUN_TOKEN", ""),
+        url="http://127.0.0.1:8000",
+        token=os.environ.get("LingYun_TOKEN", ""),
     )
 
     # ------------------------------------------------------------------ #

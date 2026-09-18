@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import os
 import sys
+import time
 from pathlib import Path
 
 from qiskit import transpile
@@ -28,9 +29,13 @@ from qiskit import transpile
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import quantumrouter as qr  # noqa: E402 - path adjusted above
-import time
+from dotenv import load_dotenv
+
 
 def main() -> None:
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    load_dotenv(os.path.join(project_root, ".env"))
+
     # ------------------------------------------------------------------ #
     # Build a provider from a connection string.
     # The transport (HTTP here) is inferred from the URL scheme.

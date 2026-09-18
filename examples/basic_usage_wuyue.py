@@ -16,15 +16,18 @@ from qiskit import QuantumCircuit
 # Auto add project root path for local run without install
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import quantumrouter as qr  # noqa: E402
+from dotenv import load_dotenv
 
 
 def main() -> None:
     # ------------------------------------------------------------------ #
     # 1. Create WuYue provider via unified create_provider entry
     # ------------------------------------------------------------------ #
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    load_dotenv(os.path.join(project_root, ".env"))
     provider = qr.create_provider(
             backend="wuyue",
-            token=os.environ.get("WUYUE_TOKEN", "xxxxxxxxx+xxxxxxxxxxx"),
+            token=os.environ.get("WUYUE_TOKEN", None),
         )
 
     # ------------------------------------------------------------------ #
