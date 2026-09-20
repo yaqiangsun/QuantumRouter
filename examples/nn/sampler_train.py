@@ -79,7 +79,7 @@ def parse_args() -> argparse.Namespace:
         "--backend",
         choices=sorted(PROVIDERS),
         default="lingyun",
-        help=f"要用的后端指令：{' / '.join(sorted(PROVIDERS))}（默认 wuyue）",
+        help=f"要用的后端指令：{' / '.join(sorted(PROVIDERS))}（默认 lingyun）",
     )
     return parser.parse_args()
 
