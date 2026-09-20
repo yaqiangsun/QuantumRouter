@@ -19,6 +19,7 @@ from ...provider.base import Provider
 from ...provider.registry import ProviderRegistry
 from ...types import BackendStatus, BackendType
 from .backend import LQCloudBackend, LQCloudSimulatorBackend
+from .backend.utils import resolve_native_gates
 from .client import LQCloudApiClient
 
 #: LQCloud QPU ``status`` strings -> BackendStatus.  The live cloud
@@ -79,6 +80,12 @@ class LQCloudProvider(Provider):
         if not isinstance(coupling_map, list):
             coupling_map = []
 
+        # ``native_gates`` is the machine's declared gate set when the
+        # platform populates it (currently ``None`` on every live backend);
+        # resolve it against the platform IR vocabulary with the default
+        # full vocabulary as fallback — see resolve_native_gates().
+        basis_gates = resolve_native_gates(raw.get("native_gates"))
+
         construct_data = {
             "backend_type": backend_type,
             "topology": topology,
@@ -93,7 +100,7 @@ class LQCloudProvider(Provider):
                 "n_qubits": int(raw.get("qubits", 0)),
                 "simulator": simulator,
                 "coupling_map": coupling_map,
-                "basis_gates": ["h", "cz", "rz", "id", "measure", "barrier"],
+                "basis_gates": basis_gates,
                 "status": status,
                 "data": construct_data,
             }

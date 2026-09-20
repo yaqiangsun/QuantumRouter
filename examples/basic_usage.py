@@ -6,6 +6,7 @@ Run with::
     python examples/basic_usage.py --backend wuyue
     python examples/basic_usage.py --backend tianyan
     python examples/basic_usage.py --backend quafu
+    python examples/basic_usage.py --backend lqcloud
 
 Before running, set the token for the vendor you use (in ``.env`` or the
 environment)::
@@ -15,6 +16,7 @@ environment)::
     set TianYan_TOKEN=...
     set WUYUE_TOKEN=...
     set QUANFU_TOKEN=...           # quafu 云端服务地址固定，无需 LINGYUN_URL
+    set LQCLOUD_TOKEN=...          # lqcloud 真机 MQ02，云端地址固定
     set LINGYUN_URL=...            # lingyun 模拟机需要指向运行中的服务端
 
 This example talks to the chosen quantum-cloud platform over HTTP. It uses
@@ -73,10 +75,10 @@ PROVIDERS: dict[str, dict[str, object]] = {
     },
     "lqcloud": {
         "provider": "lqcloud",
-        "backend": "MQ02",  # 模拟机（10 比特）
+        "backend": "MQ02",  # 真机（24 比特链式拓扑），QPU 队列按次收费
         "token_env": "LQCLOUD_TOKEN",
         "transpile": True,
-        "run_kwargs": {"shots": 1024},
+        "run_kwargs": {"shots": 512},
     },
 }
 
@@ -136,9 +138,12 @@ def main() -> None:
     qc_raw.measure(0, 0)
     qc_raw.measure(6, 1)
 
-    # tianyan 真机前先按后端耦合表 transpile。
+    # tianyan / lqcloud 真机前先按后端耦合表 transpile。
     if cfg.get("transpile"):
-        tqc = transpile(qc_raw, backend=backend)
+        # 显式 optimization_level=1：MQ02 是真实链式拓扑，qiskit 默认级
+        # （>=2）的 ConsolidateBlocks+UnitarySynthesis 在 {h,cz,rz} 基下会
+        # 把纠缠门误合成掉（实测 cz 被吞），1 级能正确路由且不丢门。
+        tqc = transpile(qc_raw, backend=backend, optimization_level=1)
         # tqc = transpile(qc_raw, backend=backend, layout_method="sabre")
         tqc.draw(idle_wires=False)
         print("[END] tqc, type(tqc): ", tqc, type(tqc))

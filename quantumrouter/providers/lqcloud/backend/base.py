@@ -108,16 +108,40 @@ class LQCloudBackend(Backend):
     # ------------------------------------------------------------------ #
     # Target construction
     # ------------------------------------------------------------------ #
-    def _build_target(self) -> Target:
-        """Build a Target mirroring the LQCloud native gate set + topology.
+    #: Qiskit gate objects for each serializable single-qubit IR name.
+    #: ``rz`` needs a Parameterized instance; the fixed gates use plain
+    #: instances. Registry is keyed by IR name (never hardcode a machine's
+    #: gate list here — the set to register comes from
+    #: ``configuration.basis_gates``, resolved against the IR vocabulary by
+    #: :func:`resolve_native_gates`).
+    _ONE_QUBIT_GATES: dict[str, Any] = {
+        "id": IGate(),
+        "h": HGate(),
+        "x": XGate(),
+        "y": YGate(),
+        "z": ZGate(),
+        "s": SGate(),
+        "sdg": SdgGate(),
+        "t": TGate(),
+        "rz": RZGate(Parameter("theta")),
+    }
+    _TWO_QUBIT_GATES: dict[str, Any] = {
+        "cz": CZGate(),
+    }
 
-        The basis is the server's native set (``h``/``rz``/``cz``/...)
-        restricted to the QPU's real coupling map, so transpilation routes
-        two-qubit gates onto adjacent physical qubits — exactly what the
-        server's topology check enforces.
+    def _build_target(self) -> Target:
+        """Build a Target mirroring the resolved LQCloud gate set + topology.
+
+        The basis comes from ``configuration.basis_gates`` (the machine's
+        declared ``native_gates`` intersected with the IR vocabulary, the
+        full vocabulary when the platform publishes none), restricted to
+        the QPU's real coupling map — so transpilation routes two-qubit
+        gates onto adjacent physical qubits, exactly what the server's
+        topology check enforces.
         """
         raw = self._backend_config.data or {}
         n_qubits = int(self._backend_config.n_qubits)
+        basis = self._backend_config.basis_gates or []
         topology = raw.get("topology") if isinstance(raw, dict) else None
         coupling = _undirected_coupling(
             topology.get("coupling_map") if isinstance(topology, dict) else None
@@ -133,10 +157,15 @@ class LQCloudBackend(Backend):
         q_props = {(q,): None for q in range(n_qubits)}
         two_q_props = {tuple(e): None for e in coupling}
 
-        for cls in (HGate, XGate, YGate, ZGate, SGate, SdgGate, TGate, IGate):
-            target.add_instruction(cls(), q_props)
-        target.add_instruction(RZGate(Parameter("theta")), q_props)
-        target.add_instruction(CZGate(), two_q_props)
+        for name in basis:
+            name = str(name).lower()
+            if name in self._ONE_QUBIT_GATES:
+                target.add_instruction(self._ONE_QUBIT_GATES[name], q_props)
+            elif name in self._TWO_QUBIT_GATES:
+                target.add_instruction(self._TWO_QUBIT_GATES[name], two_q_props)
+            elif name in ("measure", "barrier", "reset"):
+                continue  # handled explicitly below
+            # Anything else was already dropped by resolve_native_gates.
         target.add_instruction(Measure(), q_props)
         target.add_instruction(Barrier, name="barrier")
         return target

@@ -27,12 +27,21 @@ from qiskit import QuantumCircuit
 from qiskit.circuit import ParameterExpression
 from qiskit.circuit.operation import Operation
 
-#: Gate names (after transpilation / decomposition) the LQCloud QPU
-#: server understands, as seen in the upstream SDK's serialization and
-#: verified live on MQ02 (``h``, ``x``, ``rz``, ``cz``, ``s``, ``sdg``,
-#: ``t``, ``id``, ``y``, ``z``, ``reset``, ``barrier``, ``measure``).
-#: The native two-qubit gate is ``cz`` and single-qubit rotations are
-#: ``rz`` — the same native set the SDK compiles to.
+# ---------------------------------------------------------------------- #
+# Platform IR vocabulary
+# ---------------------------------------------------------------------- #
+#
+# The gate names below are the LQCloud **circuit-IR vocabulary** — the
+# instruction names the cloud's ``qpu_server`` accepts in ``run_circuit``
+# payloads.  Like the upstream ``lqcloud`` SDK (``serialization.py`` /
+# ``circuit/gates.py``) this is a *protocol* constant, tied to the server
+# version rather than to any one machine: MQ02 / QZ02 / AGate-100 all
+# share it.  It changes only when the platform ships a new IR version, at
+# which point the SDK also bumps its own hardcoded table.
+#
+# Verified live on MQ02: ``h, x, rz, cz, s, sdg, t, id, y, z, reset,
+# barrier, measure`` are all accepted.  The native two-qubit gate is
+# ``cz``; single-qubit rotations are ``rz``.
 NATIVE_SINGLE_QUBIT_GATES = frozenset(
     {
         "id",
@@ -47,12 +56,65 @@ NATIVE_SINGLE_QUBIT_GATES = frozenset(
     }
 )
 NATIVE_TWO_QUBIT_GATES = frozenset({"cz"})
+
+#: Control / measurement instructions every LQCloud circuit must use;
+#: these are universal and never vary per machine.
 _MEASURE_GATES = frozenset({"measure"})
 _CONTROL_GATES = frozenset({"barrier"})
+_RESET_GATE = "reset"
+
+#: Full serializer vocabulary (the union we can emit on the wire).
+SERIALIZABLE_GATES = (
+    NATIVE_SINGLE_QUBIT_GATES | NATIVE_TWO_QUBIT_GATES | _MEASURE_GATES | _CONTROL_GATES | {_RESET_GATE}
+)
+
+
+def resolve_native_gates(declared_gates: Optional[Sequence[str]]) -> list[str]:
+    """Resolve a backend's declared native gate list against the IR vocabulary.
+
+    The ``/api/v1/qpus`` payload carries a ``native_gates`` field that is
+    currently ``None`` on every backend; when a deployment starts
+    populating it (or a machine advertises a narrower set), the Target and
+    serializer should follow it *inside* the protocol vocabulary rather
+    than assume the default full set.
+
+    Returns the intersection of ``declared_gates`` (lowercased) with the
+    serializable vocabulary, or the full vocabulary when nothing was
+    declared.  A declared gate that is not in the vocabulary is dropped and
+    surfaced with a warning — it would mean the platform's IR version is
+    newer than this provider knows about, and should be loud instead of
+    silently submitting an instruction the server would reject.
+    """
+    if not declared_gates:
+        return sorted(SERIALIZABLE_GATES)
+    known = set()
+    unknown: list[str] = []
+    for name in declared_gates:
+        if not isinstance(name, str):
+            continue
+        key = name.strip().lower()
+        if key in SERIALIZABLE_GATES:
+            known.add(key)
+        else:
+            unknown.append(key)
+    if unknown:
+        import warnings
+
+        warnings.warn(
+            "LQCloud backend declares native gate(s) outside this provider's "
+            f"IR vocabulary and they were ignored: {sorted(unknown)}. "
+            "This usually means the cloud deployed a newer IR version than "
+            f"this provider knows (vocabulary: {sorted(SERIALIZABLE_GATES)}).",
+            stacklevel=2,
+        )
+    # Nothing from the declared list survived -> stay conservative with the
+    # full vocabulary rather than submitting a circuit with no gates.
+    return sorted(known) if known else sorted(SERIALIZABLE_GATES)
 
 
 class LQCloudCircuitError(ValueError):
     """Raised when a Qiskit circuit cannot be shipped to the LQCloud cloud."""
+
 
 
 # ---------------------------------------------------------------------- #

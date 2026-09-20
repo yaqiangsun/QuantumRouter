@@ -4,6 +4,7 @@ Run with::
 
     python examples/nn/sampler_train.py --backend lingyun
     python examples/nn/sampler_train.py --backend quafu
+    python examples/nn/sampler_train.py --backend lqcloud
     # 跨服务推理测试：在 lingyun 训练，把权重搬到 tianyan 上再推理一遍
     python examples/nn/sampler_train.py --backend lingyun --infer-backend tianyan
 
@@ -15,6 +16,11 @@ Point ``LINGYUN_URL`` at it (defaults to ``http://127.0.0.1:8000``)::
 
 For Quafu (``--backend quafu``) set ``QUANFU_TOKEN`` in ``.env``; its
 cloud service address is fixed, so no URL is needed.
+
+For LQCloud (``--backend lqcloud``) set ``LQCLOUD_TOKEN`` in ``.env``;
+its cloud address is fixed, and the backend is the real 24-qubit MQ02
+(QPU queue charges per job — reduce ``MAX_ITER``/shots to keep a test
+run cheap).
 
 It trains a 2-qubit ``SamplerQNN`` to separate a toy linearly-separable
 dataset, using :class:`quantumrouter.Sampler` as the Qiskit primitives
@@ -163,7 +169,7 @@ def main() -> None:
     #    StatevectorSampler 之类顶替，那样线路会在本地状态向量模拟器上跑，
     #    请求根本到不了服务端。
     #
-    #    用 --backend 指令切换供应商：lingyun / tianyan / wuyue。
+    #    用 --backend 指令切换供应商：lingyun / tianyan / wuyue / quafu / lqcloud。
     # ------------------------------------------------------------------ #
     sampler, backend = connect_backend(args.backend)
 
