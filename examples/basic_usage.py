@@ -71,6 +71,13 @@ PROVIDERS: dict[str, dict[str, object]] = {
         "transpile": True,
         "run_kwargs": {"shots": 1024},
     },
+    "lqcloud": {
+        "provider": "lqcloud",
+        "backend": "MQ02",  # 模拟机（10 比特）
+        "token_env": "LQCLOUD_TOKEN",
+        "transpile": True,
+        "run_kwargs": {"shots": 1024},
+    },
 }
 
 

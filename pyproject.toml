@@ -30,10 +30,15 @@ wuyue = [
 # and defines circuits with Qiskit; both are core deps, so no extra package
 # is needed here (the upstream `pyquafu` package is not used on purpose).
 quafu = []
+# The lqcloud provider talks LQCloud's cloud REST API directly with
+# `requests` and defines circuits with Qiskit; the upstream `lqcloud`
+# SDK (and its own QuantumCircuit) is not used on purpose.
+lqcloud = []
 # All vendors at once.
 all = [
     "quantumrouter[ibm]",
     "quantumrouter[lingyun]",
+    "quantumrouter[lqcloud]",
     "quantumrouter[quafu]",
     "quantumrouter[tianyan]",
     "quantumrouter[wuyue]",

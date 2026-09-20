@@ -92,6 +92,13 @@ PROVIDERS: dict[str, dict[str, str | None]] = {
         "url_env": None,
         "url_default": None,
     },
+    "lqcloud": {
+        "provider": "lqcloud",
+        "backend": "MQ02",
+        "token_env": "LQCLOUD_TOKEN",
+        "url_env": None,
+        "url_default": None,
+    },
 }
 
 
