@@ -37,6 +37,7 @@ import datetime
 import hashlib
 import hmac
 import json
+import os
 import uuid
 from typing import Any, Optional
 from urllib.parse import quote, unquote_plus
@@ -145,6 +146,8 @@ class WuYueApiClient:
         access_key: str,
         secret_key: str,
         endpoint: Optional[str] = None,
+        *,
+        verify_ssl: Optional[bool] = None,
     ) -> None:
         if not access_key or not secret_key:
             raise ProviderError(
@@ -154,6 +157,14 @@ class WuYueApiClient:
         self.access_key = access_key
         self.secret_key = secret_key
         self.endpoint = (endpoint or endpoints.DEFAULT_ENDPOINT).rstrip("/")
+        # On by default; WUYUE_VERIFY_SSL=0 (or "false"/"no") disables
+        # certificate verification for local dev / proxy captures.
+        self.verify_ssl = bool(
+            verify_ssl
+            if verify_ssl is not None
+            else os.environ.get("WUYUE_VERIFY_SSL", "1")
+            not in ("0", "false", "no", "off", "")
+        )
 
     # ------------------------------------------------------------------ #
     # Transport helpers
@@ -180,7 +191,9 @@ class WuYueApiClient:
                 headers=_sdk_headers(action),
                 data=json.dumps(body) if body is not None else None,
                 timeout=timeout,
-                verify=False,
+                # Verify TLS by default; opt out for local dev / proxy
+                # captures via WUYUE_VERIFY_SSL=0 (mirrors other providers').
+                verify=self.verify_ssl,
             )
             resp.raise_for_status()
         except requests.RequestException as exc:
