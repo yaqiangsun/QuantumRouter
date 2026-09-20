@@ -1713,7 +1713,7 @@ requires-dist = [
     { name = "qiskit-ibm-provider", marker = "extra == 'ibm'", specifier = ">=0.11.0" },
     { name = "requests", specifier = ">=2.34.2" },
 ]
-provides-extras = ["all", "ibm", "lingyun", "quafu", "tianyan", "wuyue"]
+provides-extras = ["all", "ibm", "lingyun", "lqcloud", "quafu", "tianyan", "wuyue"]
 
 [[package]]
 name = "requests"
