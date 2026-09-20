@@ -45,6 +45,7 @@ PROVIDERS: dict[str, dict[str, object]] = {
         "token_env": "LINGYUN_TOKEN",
         "url_env": "LINGYUN_URL",
         "url_default": "http://127.0.0.1:8000",
+        "transpile": True,
         "run_kwargs": {"shots": 1024, "readout_calibration": True},
     },
     "tianyan": {
@@ -58,6 +59,7 @@ PROVIDERS: dict[str, dict[str, object]] = {
         "provider": "wuyue",
         "backend": "WuYue-QPUSim-FullAmpSim",  # 模拟机
         "token_env": "WUYUE_TOKEN",
+        "transpile": True,
         "run_kwargs": {"shots": 1024, "calculate_type": 1, "timeout": 120},
     },
 }
