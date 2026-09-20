@@ -14,6 +14,12 @@ probabilities by hand. That is the whole point: if you prefer the bare-metal
 route (or want to see how the primitive wrapper works under the hood), this is
 the thing to copy.
 
+To keep the two trainings running along the *same* objective, it also
+replicates the two default choices ``NeuralNetworkClassifier`` makes:
+the ``squared_error`` (L2) multiclass objective and the random initial point
+drawn from ``algorithm_globals`` (seeded with ``SEED``). Only the shot noise
+of the backend stays different.
+
 Requires ``qiskit-machine-learning`` (for the ansatz, the dataset RNG and the
 COBYLA optimizer only)::
 
@@ -130,7 +136,10 @@ def predict_probs(
     backend,
     shots: int,
 ) -> np.ndarray:
-    """QNN 前向：把整批样本 X 绑定上当前权重，一批提交到后端，返回 P(标签=1)。
+    """QNN 前向：把整批样本 X 绑定上当前权重，一批提交到后端，返回 (N, 2) 概率矩阵。
+
+    返回值形状和 ``SamplerQNN.forward`` 一致：第 i 行是 [[P(标签=0), P(标签=1)]],
+    这样后续目标函数、预测的写法都能和 ``sampler_train.py`` 对齐。
 
     ``sampler_train.py`` 里这件事是 ``SamplerQNN(sampler=...)`` 做的；这里
     直接复刻它做的事：绑定参数 -> ``backend.run()`` -> ``get_counts()`` ->
@@ -152,13 +161,25 @@ def predict_probs(
         total = sum(counts.values())
         ones = sum(cnt for key, cnt in counts.items() if parity(bitstring_to_int(key)))
         p1[i] = ones / total
-    return p1
+    return np.column_stack([1.0 - p1, p1])
 
 
-def cross_entropy_loss(y01: np.ndarray, p1: np.ndarray) -> float:
-    """二分类交叉熵，和 NeuralNetworkClassifier 的默认损失一致。"""
-    p1 = np.clip(p1, 1e-6, 1 - 1e-6)  # 少量 shots 时会采出 0/1 的极端概率，先夹住
-    return float(-np.mean(y01 * np.log(p1) + (1 - y01) * np.log(1 - p1)))
+def squared_error_loss(y01: np.ndarray, probs: np.ndarray) -> float:
+    """二阶（L2）多分类目标 —— :class:`NeuralNetworkClassifier` 的默认损失。
+
+    逐行等价于 qiskit-machine-learning 的 ``MultiClassObjectiveFunction`` +
+    ``L2Loss``（classifier 没传 ``loss`` 参数时用的就是这套）：:
+
+        loss = (1/N) * Σ_out Σ_sample  probs[sample, out] * (out - y_sample)²
+
+    注意这是概率的**线性**损失，不是交叉熵。要跟 ``sampler_train.py`` 训出
+    同样的轨迹，目标函数必须和它一模一样 —— 这是关键之一。
+    """
+    num_samples = y01.shape[0]
+    val = 0.0
+    for out in (0, 1):
+        val += probs[:, out] @ (np.full(num_samples, out) - y01) ** 2
+    return float(val / num_samples)
 
 
 def main() -> None:
@@ -197,14 +218,14 @@ def main() -> None:
     circuit.measure_all()
 
     # ------------------------------------------------------------------ #
-    # 3. 定义 objective：一批样本过一遍后端，算交叉熵。
+    # 3. 定义 objective：一批样本过一遍后端，算 classifier 默认的 L2 损失。
     # ------------------------------------------------------------------ #
     evals = 0
 
     def objective(weights: np.ndarray) -> float:
         nonlocal evals
-        p1 = predict_probs(circuit, input_params, weight_params, X, weights, backend, SHOTS)
-        loss = cross_entropy_loss(y01, p1)
+        probs = predict_probs(circuit, input_params, weight_params, X, weights, backend, SHOTS)
+        loss = squared_error_loss(y01, probs)
         evals += 1
         print(f"  目标函数: {loss:.6f} (第 {evals} 次求值)")
         return loss
@@ -213,12 +234,15 @@ def main() -> None:
     # 4. 训练并评估。
     # ------------------------------------------------------------------ #
     print(f"在 {backend.name} 上训练 {NUM_SAMPLES} 个样本，最多 {MAX_ITER} 次迭代 ...")
-    initial_point = np.zeros(len(weight_params))
+    # NeuralNetworkClassifier 不传 initial_point 时用的初值是
+    # algorithm_globals.random.random(num_weights) —— 也固定 SEED=42，
+    # 而且是在 build_dataset() 之后第一个抽的，这里照它抽，两条路径的初值一致。
+    initial_point = algorithm_globals.random.random(len(weight_params))
     optimize_result = COBYLA(maxiter=MAX_ITER).minimize(objective, initial_point)
     final_weights = np.asarray(optimize_result.x)
 
-    p1 = predict_probs(circuit, input_params, weight_params, X, final_weights, backend, SHOTS)
-    pred = (p1 >= 0.5).astype(int)
+    probs = predict_probs(circuit, input_params, weight_params, X, final_weights, backend, SHOTS)
+    pred = np.argmax(probs, axis=1)  # 和 classifier.predict 的 argmax 一致
     accuracy = float(np.mean(pred == y01))
     print(f"\n训练集分类准确率 = {accuracy:.4f}")
     print(f"训练后的权重: {np.round(final_weights, 6)}")
