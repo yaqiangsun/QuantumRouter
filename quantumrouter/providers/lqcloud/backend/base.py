@@ -24,23 +24,9 @@ from ..job import LQCloudJob
 from .utils import LQCloudCircuitError, qiskit_circuit_to_ir
 
 from qiskit import QuantumCircuit
-from qiskit.circuit import Parameter
-from qiskit.circuit.library import (
-    Barrier,
-    CZGate,
-    HGate,
-    IGate,
-    Measure,
-    RZGate,
-    SGate,
-    SdgGate,
-    TGate,
-    XGate,
-    YGate,
-    ZGate,
-)
+from qiskit.circuit.library import Barrier
 from qiskit.providers import BackendV2 as Backend, JobV1, Options
-from qiskit.transpiler import Target, generate_preset_pass_manager
+from qiskit.transpiler import CouplingMap, Target, generate_preset_pass_manager
 
 
 def _undirected_coupling(raw: Any) -> list[list[int]]:
@@ -108,27 +94,6 @@ class LQCloudBackend(Backend):
     # ------------------------------------------------------------------ #
     # Target construction
     # ------------------------------------------------------------------ #
-    #: Qiskit gate objects for each serializable single-qubit IR name.
-    #: ``rz`` needs a Parameterized instance; the fixed gates use plain
-    #: instances. Registry is keyed by IR name (never hardcode a machine's
-    #: gate list here — the set to register comes from
-    #: ``configuration.basis_gates``, resolved against the IR vocabulary by
-    #: :func:`resolve_native_gates`).
-    _ONE_QUBIT_GATES: dict[str, Any] = {
-        "id": IGate(),
-        "h": HGate(),
-        "x": XGate(),
-        "y": YGate(),
-        "z": ZGate(),
-        "s": SGate(),
-        "sdg": SdgGate(),
-        "t": TGate(),
-        "rz": RZGate(Parameter("theta")),
-    }
-    _TWO_QUBIT_GATES: dict[str, Any] = {
-        "cz": CZGate(),
-    }
-
     def _build_target(self) -> Target:
         """Build a Target mirroring the resolved LQCloud gate set + topology.
 
@@ -138,10 +103,16 @@ class LQCloudBackend(Backend):
         the QPU's real coupling map — so transpilation routes two-qubit
         gates onto adjacent physical qubits, exactly what the server's
         topology check enforces.
+
+        The Target is built **declaratively** with
+        :meth:`Target.from_configuration`, which resolves standard gate
+        *names* (``h``/``x``/``rz``/``cz``/...) into Qiskit gate objects —
+        no manual name→class registry is maintained here.  ``barrier`` is
+        the one name that helper does not know and is added explicitly.
         """
         raw = self._backend_config.data or {}
         n_qubits = int(self._backend_config.n_qubits)
-        basis = self._backend_config.basis_gates or []
+        basis = [str(g).lower() for g in (self._backend_config.basis_gates or [])]
         topology = raw.get("topology") if isinstance(raw, dict) else None
         coupling = _undirected_coupling(
             topology.get("coupling_map") if isinstance(topology, dict) else None
@@ -153,20 +124,16 @@ class LQCloudBackend(Backend):
                 [i, j] for i in range(n_qubits) for j in range(n_qubits) if i != j
             ]
 
-        target = Target(num_qubits=n_qubits, description=self._backend_config.backend_name)
-        q_props = {(q,): None for q in range(n_qubits)}
-        two_q_props = {tuple(e): None for e in coupling}
-
-        for name in basis:
-            name = str(name).lower()
-            if name in self._ONE_QUBIT_GATES:
-                target.add_instruction(self._ONE_QUBIT_GATES[name], q_props)
-            elif name in self._TWO_QUBIT_GATES:
-                target.add_instruction(self._TWO_QUBIT_GATES[name], two_q_props)
-            elif name in ("measure", "barrier", "reset"):
-                continue  # handled explicitly below
-            # Anything else was already dropped by resolve_native_gates.
-        target.add_instruction(Measure(), q_props)
+        # ``Target.from_configuration`` does not accept ``barrier`` (it is
+        # not a first-class standard gate); exclude it from the basis list
+        # and add it explicitly after — it only acts as a scheduling fence.
+        basis_without_barrier = [name for name in basis if name != "barrier"]
+        target = Target.from_configuration(
+            basis_gates=basis_without_barrier,
+            num_qubits=n_qubits,
+            coupling_map=CouplingMap(coupling),
+        )
+        target.description = self._backend_config.backend_name
         target.add_instruction(Barrier, name="barrier")
         return target
 
