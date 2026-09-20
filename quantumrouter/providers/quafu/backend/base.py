@@ -12,8 +12,8 @@ native gate set, by contrast, is taken from the listing's
 ``valid_gates`` field (normalised by the provider), so the Target
 tracks the machine actually serving the token (ScQ-Sim10, Baihua,
 ScQ-P5, ...). Gate names that cannot be mapped to a Qiskit instruction
-are skipped rather than guessed; if the listing carries no gate list a
-fixed OpenQASM-2 baseline is used. Upstream pyquafu additionally
+are skipped with a warning rather than guessed; if the listing carries
+no gate list a fixed OpenQASM-2 baseline is used. Upstream pyquafu additionally
 compiles on the server (``compile=True``), which re-routes onto the
 real device topology anyway — so a fully-connected client-side Target
 is safe for the simulator and acceptable as a first cut for real
@@ -22,6 +22,7 @@ hardware.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Optional, Union
 
 from ....backend.configuration import BackendConfiguration
@@ -29,60 +30,26 @@ from ..client import QuafuApiClient
 from ..job import QuafuJob
 from .utils import qiskit_to_qasm2
 
+import qiskit
 from qiskit import QuantumCircuit
-from qiskit.circuit import Delay, Parameter
-from qiskit.circuit.library import (
-    CYGate,
-    CZGate,
-    CXGate,
-    HGate,
-    IGate,
-    Measure,
-    RXGate,
-    RYGate,
-    RZGate,
-    SGate,
-    SdgGate,
-    SXGate,
-    SwapGate,
-    TGate,
-    TdgGate,
-    XGate,
-    YGate,
-    ZGate,
-    Barrier,
-)
+from qiskit.circuit.library import Barrier, CXGate, IGate, Measure
+from qiskit.circuit.library.standard_gates import get_standard_gate_name_mapping
 from qiskit.providers import BackendV2 as Backend, JobV1, Options
 from qiskit.transpiler import Target, generate_preset_pass_manager
 
-# QASM-2 gate names (as reported by Quafu's ``valid_gates`` listing,
-# lowercased/normalised by the provider) -> a factory returning the
-# matching Qiskit instruction. Parametric gates are materialised with a
-# placeholder ``Parameter`` as their definition-time value. Names not in
-# this table (e.g. the ``sy`` listed by ScQ-P5, which Qiskit 2.5 has no
-# gate for) are skipped so the transpiler never emits a gate the server
-# does not accept; they stay decomposable into the registered set.
-_QASM_GATE_FACTORIES: dict[str, object] = {
-    "x": lambda: XGate(),
-    "y": lambda: YGate(),
-    "z": lambda: ZGate(),
-    "h": lambda: HGate(),
-    "s": lambda: SGate(),
-    "sdg": lambda: SdgGate(),
-    "sx": lambda: SXGate(),
-    "t": lambda: TGate(),
-    "tdg": lambda: TdgGate(),
-    "id": lambda: IGate(),
-    "i": lambda: IGate(),
-    "rx": lambda: RXGate(Parameter("theta")),
-    "ry": lambda: RYGate(Parameter("theta")),
-    "rz": lambda: RZGate(Parameter("theta")),
-    "cx": lambda: CXGate(),
-    "cnot": lambda: CXGate(),
-    "cz": lambda: CZGate(),
-    "cy": lambda: CYGate(),
-    "swap": lambda: SwapGate(),
-    "delay": lambda: Delay(Parameter("t")),
+logger = logging.getLogger(__name__)
+
+# Gate-name resolution for the Target: everything runs through qiskit's
+# own maintained standard-gate registry (``get_standard_gate_name_mapping()``,
+# 54 gates incl. parametric rx/ry/rz, iswap, sxdg, ccx, reset, ...) instead
+# of a hand-copied subset, so the recognised set tracks qiskit releases.
+# Only the alias spellings Quafu's ``valid_gates`` listing emits that qiskit
+# does not know are listed here; they are instantiated fresh per backend.
+# Parametric gates come out of the mapping already bound to placeholder
+# ``Parameter``s, matching the previous factory behaviour.
+_GATE_ALIASES: dict[str, type] = {
+    "cnot": CXGate,
+    "i": IGate,
 }
 
 # Fixed OpenQASM-2 baseline used when the listing carries no gate list,
@@ -149,11 +116,11 @@ class QuafuBackend(Backend):
         Gates are materialised onto a fully-connected graph (Quafu does
         not publish coupling maps; the server re-routes via
         ``compile=True`` anyway). Gate names the listing reports but that
-        map to nothing here are skipped so the transpiler never emits a
-        gate the server does not accept. When the listing carries no gate
-        list, a fixed OpenQASM-2 baseline (``_FALLBACK_GATES``) is used so
-        a bare config still yields a usable target. Measure and barrier
-        are added unconditionally.
+        resolve to no instruction are skipped with a warning, so the
+        transpiler never emits a gate the server does not accept. When the
+        listing carries no gate list, a fixed OpenQASM-2 baseline
+        (``_FALLBACK_GATES``) is used so a bare config still yields a
+        usable target. Measure and barrier are added unconditionally.
         """
         n_qubits = self._backend_config.n_qubits
         target = Target(
@@ -167,14 +134,31 @@ class QuafuBackend(Backend):
             if i != j
         }
 
+        gate_names = get_standard_gate_name_mapping()
+        gate_names.update({name: cls() for name, cls in _GATE_ALIASES.items()})
         gates = self._backend_config.basis_gates or _FALLBACK_GATES
         registered: set[str] = set()
         for name in gates:
-            factory = _QASM_GATE_FACTORIES.get(name)
-            if factory is None:
-                # Unknown / unmappable gate name: skip it (see module docs).
+            if name in ("measure", "barrier"):
+                # Added unconditionally below; resolve there, not here, so a
+                # listing that advertises them never trips the unknown-gate
+                # warning below.
                 continue
-            gate = factory()
+            gate = gate_names.get(name)
+            if gate is None:
+                # Server advertises a gate neither qiskit nor the aliases can
+                # represent (e.g. ``sy`` on ScQ-P5 in qiskit 2.5): it cannot
+                # enter the Target. Warn so the omission is visible — a
+                # circuit using this gate verbatim fails at transpile time
+                # instead of silently misbehaving.
+                logger.warning(
+                    "backend %s advertises gate %r, which qiskit %s has no "
+                    "instruction for; excluding it from the Target",
+                    self._backend_config.backend_name,
+                    name,
+                    qiskit.__version__,
+                )
+                continue
             # Dedup on the instruction's own name so aliases resolve to one
             # registration (e.g. ``cnot`` -> CXGate, whose name is ``cx``).
             instr_name = getattr(gate, "name", name)
