@@ -9,6 +9,8 @@ resolves once this package is imported.
 
 from __future__ import annotations
 
+import json
+
 from ...backend.base import Backend
 from ...backend.configuration import BackendConfiguration
 from ...config import ConnectionConfig
@@ -31,6 +33,50 @@ _STATUS_MAP = {
     "Obsolete": BackendStatus.OFFLINE,
     "obsolete": BackendStatus.OFFLINE,
 }
+
+
+def _clean_gate_names(items: object) -> list[str]:
+    """Strip whitespace, lowercase, and drop empties/non-str entries."""
+    if not isinstance(items, list):
+        return []
+    names: list[str] = []
+    for g in items:
+        if not isinstance(g, str):
+            continue
+        name = g.strip().lower()
+        if name:
+            names.append(name)
+    return names
+
+
+def _normalize_valid_gates(raw: object) -> list[str]:
+    """Return a clean, lowercased gate-name list from Quafu's listing.
+
+    The API is inconsistent across machines. ``valid_gates`` comes back
+    as a proper list (ScQ-Sim10), or as a single-string JSON array
+    (``'[ "cx", ... ]'``), or — for Baihua — as a list of fragments the
+    server split out of that JSON array (``['[ "cx"', ' "cz"', ...]``).
+    Normalise every shape so downstream Target construction and
+    ``fetch_configuration`` see one clean list.
+    """
+    field = raw
+    if isinstance(field, str):
+        try:
+            parsed = json.loads(field.strip())
+            if isinstance(parsed, list):
+                return _clean_gate_names(parsed)
+        except json.JSONDecodeError:
+            pass
+        field = [field]
+    if isinstance(field, list) and all(isinstance(x, str) for x in field):
+        # A JSON array the server split across list elements.
+        try:
+            parsed = json.loads(",".join(field))
+            if isinstance(parsed, list):
+                return _clean_gate_names(parsed)
+        except json.JSONDecodeError:
+            pass
+    return _clean_gate_names(field)
 
 
 class QuafuProvider(Provider):
@@ -66,7 +112,7 @@ class QuafuProvider(Provider):
         simulator = backend_type == BackendType.simulator
         raw_status = raw.get("status", "")
         status = _STATUS_MAP.get(raw_status, BackendStatus.UNKNOWN)
-        basis_gates = [g.lower() for g in (raw.get("valid_gates") or [])]
+        basis_gates = _normalize_valid_gates(raw.get("valid_gates"))
 
         construct_data = {
             "system_id": raw.get("system_id", 0),

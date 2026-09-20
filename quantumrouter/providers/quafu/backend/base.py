@@ -7,7 +7,13 @@ quantum variants share this class; they only differ in how the
 
 Topology note: Quafu does not expose per-backend coupling via its
 listing endpoint, and the on-scope device (ScQ-Sim10) is a simulator,
-so the Target is built fully-connected. Upstream pyquafu additionally
+so the Target is built fully-connected regardless of machine. The
+native gate set, by contrast, is taken from the listing's
+``valid_gates`` field (normalised by the provider), so the Target
+tracks the machine actually serving the token (ScQ-Sim10, Baihua,
+ScQ-P5, ...). Gate names that cannot be mapped to a Qiskit instruction
+are skipped rather than guessed; if the listing carries no gate list a
+fixed OpenQASM-2 baseline is used. Upstream pyquafu additionally
 compiles on the server (``compile=True``), which re-routes onto the
 real device topology anyway — so a fully-connected client-side Target
 is safe for the simulator and acceptable as a first cut for real
@@ -24,8 +30,9 @@ from ..job import QuafuJob
 from .utils import qiskit_to_qasm2
 
 from qiskit import QuantumCircuit
-from qiskit.circuit import Parameter
+from qiskit.circuit import Delay, Parameter
 from qiskit.circuit.library import (
+    CYGate,
     CZGate,
     CXGate,
     HGate,
@@ -36,6 +43,8 @@ from qiskit.circuit.library import (
     RZGate,
     SGate,
     SdgGate,
+    SXGate,
+    SwapGate,
     TGate,
     TdgGate,
     XGate,
@@ -45,6 +54,45 @@ from qiskit.circuit.library import (
 )
 from qiskit.providers import BackendV2 as Backend, JobV1, Options
 from qiskit.transpiler import Target, generate_preset_pass_manager
+
+# QASM-2 gate names (as reported by Quafu's ``valid_gates`` listing,
+# lowercased/normalised by the provider) -> a factory returning the
+# matching Qiskit instruction. Parametric gates are materialised with a
+# placeholder ``Parameter`` as their definition-time value. Names not in
+# this table (e.g. the ``sy`` listed by ScQ-P5, which Qiskit 2.5 has no
+# gate for) are skipped so the transpiler never emits a gate the server
+# does not accept; they stay decomposable into the registered set.
+_QASM_GATE_FACTORIES: dict[str, object] = {
+    "x": lambda: XGate(),
+    "y": lambda: YGate(),
+    "z": lambda: ZGate(),
+    "h": lambda: HGate(),
+    "s": lambda: SGate(),
+    "sdg": lambda: SdgGate(),
+    "sx": lambda: SXGate(),
+    "t": lambda: TGate(),
+    "tdg": lambda: TdgGate(),
+    "id": lambda: IGate(),
+    "i": lambda: IGate(),
+    "rx": lambda: RXGate(Parameter("theta")),
+    "ry": lambda: RYGate(Parameter("theta")),
+    "rz": lambda: RZGate(Parameter("theta")),
+    "cx": lambda: CXGate(),
+    "cnot": lambda: CXGate(),
+    "cz": lambda: CZGate(),
+    "cy": lambda: CYGate(),
+    "swap": lambda: SwapGate(),
+    "delay": lambda: Delay(Parameter("t")),
+}
+
+# Fixed OpenQASM-2 baseline used when the listing carries no gate list,
+# reproducing the previous hardcoded set: RX/RY/RZ + H/X/Y/Z/S/Sdg/T/Tdg/
+# I single-qubit, CX/CZ two-qubit. Measure/Barrier are added separately.
+_FALLBACK_GATES = [
+    "rx", "ry", "rz",
+    "h", "x", "y", "z", "s", "sdg", "t", "tdg", "id",
+    "cx", "cz",
+]
 
 
 class QuafuBackend(Backend):
@@ -96,13 +144,21 @@ class QuafuBackend(Backend):
     # Target construction
     # ------------------------------------------------------------------ #
     def _build_target(self) -> Target:
-        """Build a fully-connected Target from the backend listing data.
+        """Build a Target driven by the cloud's ``valid_gates`` listing.
 
-        Gates mirror the OpenQASM 2 baseline the Quafu server compiles
-        (its ``valid_gates`` listed ``cx, cz, rx, ry, rz, x, y, z, h``).
+        Gates are materialised onto a fully-connected graph (Quafu does
+        not publish coupling maps; the server re-routes via
+        ``compile=True`` anyway). Gate names the listing reports but that
+        map to nothing here are skipped so the transpiler never emits a
+        gate the server does not accept. When the listing carries no gate
+        list, a fixed OpenQASM-2 baseline (``_FALLBACK_GATES``) is used so
+        a bare config still yields a usable target. Measure and barrier
+        are added unconditionally.
         """
         n_qubits = self._backend_config.n_qubits
-        target = Target(num_qubits=n_qubits, description=self._backend_config.backend_name)
+        target = Target(
+            num_qubits=n_qubits, description=self._backend_config.backend_name
+        )
         q_props = {(q,): None for q in range(n_qubits)}
         two_q_props = {
             (i, j): None
@@ -111,14 +167,30 @@ class QuafuBackend(Backend):
             if i != j
         }
 
-        for cls in (RXGate, RYGate, RZGate):
-            target.add_instruction(cls(Parameter("theta")), q_props)
-        for cls in (HGate, XGate, YGate, ZGate, SGate, SdgGate, TGate, TdgGate, IGate):
-            target.add_instruction(cls(), q_props)
-        target.add_instruction(CXGate(), two_q_props)
-        target.add_instruction(CZGate(), two_q_props)
-        target.add_instruction(Measure(), q_props)
-        target.add_instruction(Barrier, name="barrier")
+        gates = self._backend_config.basis_gates or _FALLBACK_GATES
+        registered: set[str] = set()
+        for name in gates:
+            factory = _QASM_GATE_FACTORIES.get(name)
+            if factory is None:
+                # Unknown / unmappable gate name: skip it (see module docs).
+                continue
+            gate = factory()
+            # Dedup on the instruction's own name so aliases resolve to one
+            # registration (e.g. ``cnot`` -> CXGate, whose name is ``cx``).
+            instr_name = getattr(gate, "name", name)
+            if instr_name in registered:
+                continue
+            target.add_instruction(
+                gate, q_props if gate.num_qubits == 1 else two_q_props
+            )
+            registered.add(instr_name)
+
+        # Measurement and barrier are universal; barrier is also required
+        # by the transpiler's routing passes regardless of the listing.
+        if "measure" not in registered:
+            target.add_instruction(Measure(), q_props)
+        if "barrier" not in registered:
+            target.add_instruction(Barrier, name="barrier")
         return target
 
     # ------------------------------------------------------------------ #
