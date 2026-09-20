@@ -1,17 +1,21 @@
 """WuYue provider.
-Concrete :class:`Provider` for the WuYue quantum-cloud.
-All low-level Transport logic removed; network, auth, request assembly
-delegated to WuYuePlatform wrapped inside WuYueApiClient.
-Self-registers with :class:`ProviderRegistry` so that
-``ProviderRegistry.get("WuYue")`` resolves once this package is imported.
+
+Concrete :class:`Provider` for the WuYue quantum-cloud.  Uses only the
+WuYue remote request compute service (list engines / submit / poll) via
+:class:`WuYueApiClient`; circuit definition and transpilation stay in
+Qiskit — the upstream ``wuyue`` package is never imported.  Self-registers
+with :class:`ProviderRegistry` so that ``ProviderRegistry.get("wuyue")``
+resolves once this package is imported.
 """
+
 from __future__ import annotations
-from ...provider.base import Provider
-from ...provider.registry import ProviderRegistry
+
 from ...backend.base import Backend
 from ...backend.configuration import BackendConfiguration
 from ...config import ConnectionConfig
 from ...exceptions import BackendNotFoundError
+from ...provider.base import Provider
+from ...provider.registry import ProviderRegistry
 from ...types import BackendStatus, BackendType
 from .backend import WuYueQuantumBackend, WuYueSimulatorBackend
 from .client import WuYueApiClient
@@ -19,6 +23,7 @@ from .client import WuYueApiClient
 
 class WuYueProvider(Provider):
     """Cloud-provider implementation for WuYue."""
+
     def __init__(
         self,
         connection: ConnectionConfig,
@@ -34,39 +39,39 @@ class WuYueProvider(Provider):
         return "wuyue"
 
     def _create_api_client(self) -> WuYueApiClient:
+        # WUYUE_TOKEN is the "accessKey+secretKey" pair the Ecloud AK/SK
+        # scheme needs ("xxxx+yyyy", see .env-example).
         access_key = self.token.split("+")[0] if "+" in self.token else self.token
         secret_key = self.token.split("+")[1] if "+" in self.token else ""
         return WuYueApiClient(access_key=access_key, secret_key=secret_key)
 
     @staticmethod
     def _parse_wuyue_config(raw_api_data: dict) -> BackendConfiguration:
-        """WuYue exclusive config parser, normalize raw cloud engine data to standard BackendConfiguration."""
+        """Normalize a raw WuYue engine dict into a BackendConfiguration."""
         backend_code = raw_api_data["code"]
-        display_name = raw_api_data["name"]
-        qubit_count = raw_api_data["n_qubits"]
+        qubit_count = int(raw_api_data["n_qubits"])
         is_sim = raw_api_data["simulator"]
-        label_tag = raw_api_data["labels"]
-        desc = raw_api_data["description"]
+        label_tag = raw_api_data.get("labels", "1" if not is_sim else "0")
 
-        # Map label field to backend type consistent with TianYan logic
-        if label_tag == "1":
-            backend_type = BackendType.quantum_computer
-        else:
-            backend_type = BackendType.simulator
+        # Map label field to backend type consistent with TianYan logic.
+        backend_type = (
+            BackendType.simulator if label_tag == "0" or is_sim
+            else BackendType.quantum_computer
+        )
 
-        # WuYue api only returns normalized basic info, no hardware coupling/calibration via list interface
+        # WuYue's engine-list API returns no per-backend coupling/calibration,
+        # so the Target is built fully-connected in the backend class.
         coupling_map = []
-        # if backend_type == BackendType.quantum_computer:
-        #     coupling_map = [[i, j] for i in range(min(qubit_count, 30)) for j in range(i)]
-        # else:
-        #     coupling_map = [[i, j] for i in range(qubit_count) for j in range(i)]
 
-        # WuYue standard basis gates consistent with returned normalized data
-        basis_gates = ["id", "h", "cz", "rz", "measure", "barrier"]
+        # Basis the WuYue server compiles from standard OpenQASM 2.
+        basis_gates = ["id", "h", "x", "y", "z", "rz", "ry", "rx", "cx", "cz", "measure", "barrier"]
         derivative_gates = []
 
-        construct_data = {'derivative_gates': derivative_gates,
-                                  'backend_type': backend_type}
+        construct_data = {
+            "derivative_gates": derivative_gates,
+            "backend_type": backend_type,
+            "raw": raw_api_data,
+        }
 
         cfg_build_dict = {
             "backend_name": backend_code,
@@ -80,7 +85,6 @@ class WuYueProvider(Provider):
         cfg = BackendConfiguration.from_dict(cfg_build_dict)
 
         return cfg
-    
 
     def backends(
         self,
@@ -91,30 +95,23 @@ class WuYueProvider(Provider):
     ) -> list[Backend]:
         """List WuYue backends with optional filtering."""
         raw_backends = self._api_client.get_backends()
-
         result: list[Backend] = []
         for data in raw_backends:
             cfg = self._parse_wuyue_config(data)
+            if online and cfg.status not in (
+                BackendStatus.RUNNING,
+                BackendStatus.ONLINE,
+                BackendStatus.UNKNOWN,
+            ):
+                continue
             if simulator is not None and cfg.simulator != simulator:
                 continue
             if name is not None and cfg.backend_name != name:
                 continue
-            # print("[INFO] provider.py cfg.simulator: ", cfg.simulator)
-            if cfg.simulator:
-                sim_backend = WuYueSimulatorBackend(
-                    configuration=cfg,
-                    api_client=self._api_client,
-                )
-
-                result.append(sim_backend)
-            else:
-                qpu_backend = WuYueQuantumBackend(
-                    configuration=cfg,
-                    api_client=self._api_client,
-                )
-
-                result.append(qpu_backend)
-        # print("[INFO] provider.py result: ", result)
+            backend_cls = (
+                WuYueSimulatorBackend if cfg.simulator else WuYueQuantumBackend
+            )
+            result.append(backend_cls(configuration=cfg, api_client=self._api_client))
         return result
 
     def backend(self, name: str) -> Backend:
@@ -123,16 +120,12 @@ class WuYueProvider(Provider):
             if data.get("code") != name:
                 continue
             cfg = self._parse_wuyue_config(data)
-            if cfg.simulator:
-                return WuYueSimulatorBackend(
-                    configuration=cfg,
-                    api_client=self._api_client,
-                )
-            return WuYueQuantumBackend(
-                configuration=cfg,
-                api_client=self._api_client,
+            backend_cls = (
+                WuYueSimulatorBackend if cfg.simulator else WuYueQuantumBackend
             )
+            return backend_cls(configuration=cfg, api_client=self._api_client)
         raise BackendNotFoundError(name)
 
 
+# Self-register once the module is imported.
 ProviderRegistry.register(WuYueProvider)

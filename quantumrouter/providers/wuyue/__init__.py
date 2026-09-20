@@ -1,16 +1,17 @@
-"""WuYue quantum-cloud provider.
+"""WuYue provider package.
 
-Self-registers with :class:`ProviderRegistry` on import so that
-``ProviderRegistry.get("WuYue")`` resolves after
-``import quantumrouter.providers.WuYue``.
+Uses only the WuYue **remote request compute service** (list engines /
+submit / poll circuit tasks) — the upstream ``wuyue`` SDK and its bundled
+``QuantumCircuit`` / simulator / gradient stack are deliberately not used.
+Circuits are defined and transpiled with Qiskit exactly like every other
+QuantumRouter vendor, then serialized to OpenQASM 2 by
+:mod:`quantumrouter.providers.wuyue.backend.utils` before submission.
 
-Endpoint paths and auth headers are defined in :mod:`config` so that
-the 172.29.220.35 simulation server and qc.zdxlz.com cloud can be
-swapped without touching client logic.
+Importing this package self-registers :class:`WuYueProvider` with the
+:class:`quantumrouter.provider.registry.ProviderRegistry` under the id
+``"wuyue"``.
 """
 
-from .client import WuYueApiClient
 from .provider import WuYueProvider
-from .job import WuYueJob
 
-__all__ = ["WuYueApiClient", "WuYueProvider", "WuYueJob"]
+__all__ = ["WuYueProvider"]

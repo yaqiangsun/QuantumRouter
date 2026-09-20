@@ -23,9 +23,11 @@ lingyun = [
 tianyan = [
     "cqlib-adapter>=0.3.3",
 ]
-wuyue = [
-    # "wuyue==1.1.2",
-]
+# The wuyue provider talks WuYue's cloud REST API directly with `requests`
+# and defines circuits with Qiskit; both are core deps, so no extra package
+# is needed here (the upstream `wuyue` SDK — cirq/pennylane/torch/pycryptodome —
+# is not used on purpose).
+wuyue = []
 # The quafu provider talks Quafu's cloud REST API directly with `requests`
 # and defines circuits with Qiskit; both are core deps, so no extra package
 # is needed here (the upstream `pyquafu` package is not used on purpose).
