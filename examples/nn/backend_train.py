@@ -4,6 +4,8 @@
 Run with::
 
     python examples/nn/backend_train.py --backend lingyun
+    # 跨服务推理测试：在 lingyun 训练，把权重搬到 tianyan 上再推理一遍
+    python examples/nn/backend_train.py --backend lingyun --infer-backend tianyan
 
 This is the ``backend``-only twin of :file:`sampler_train.py`: same problem,
 same circuit, same dataset, same optimizer — but instead of wrapping the
@@ -19,6 +21,13 @@ replicates the two default choices ``NeuralNetworkClassifier`` makes:
 the ``squared_error`` (L2) multiclass objective and the random initial point
 drawn from ``algorithm_globals`` (seeded with ``SEED``). Only the shot noise
 of the backend stays different.
+
+With ``--infer-backend`` it also shows the reverse direction — a model is
+only a vector of parameters, so the trained weights can be shipped to a
+*second* provider and run pure inference there (via the same
+:func:`predict_probs` forward pass, just pointed at another backend). This
+proves the weights are portable across clouds: train on one service, infer
+on another.
 
 Requires ``qiskit-machine-learning`` (for the ansatz, the dataset RNG and the
 COBYLA optimizer only)::
@@ -96,7 +105,14 @@ def parse_args() -> argparse.Namespace:
         "--backend",
         choices=sorted(PROVIDERS),
         default="lingyun",
-        help=f"要用的后端指令：{' / '.join(sorted(PROVIDERS))}（默认 lingyun）",
+        help=f"训练要用的后端指令：{' / '.join(sorted(PROVIDERS))}（默认 lingyun）",
+    )
+    parser.add_argument(
+        "--infer-backend",
+        choices=sorted(PROVIDERS),
+        default=None,
+        help=f"可选：训练完成后，把训练好的权重搬到这个后端上做纯推理测试"
+             f"（跨服务验证模型可移植，例如 --backend lingyun --infer-backend tianyan）",
     )
     return parser.parse_args()
 
@@ -182,6 +198,18 @@ def squared_error_loss(y01: np.ndarray, probs: np.ndarray) -> float:
     return float(val / num_samples)
 
 
+def connect_backend(name: str):
+    """按 PROVIDERS 表里的键连上一个后端，直接返回它（不经 Sampler）。"""
+    config = PROVIDERS[name]
+    url = (os.environ.get(config["url_env"]) or config["url_default"]) if config["url_env"] else None
+    provider = qr.create_provider(
+        backend=config["provider"],
+        url=url,
+        token=os.environ.get(config["token_env"]) or None,
+    )
+    return provider.backend(config["backend"])
+
+
 def main() -> None:
     args = parse_args()
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -196,13 +224,7 @@ def main() -> None:
     #
     #    用 --backend 指令切换供应商：lingyun / tianyan / wuyue。
     # ------------------------------------------------------------------ #
-    config = PROVIDERS[args.backend]
-    provider = qr.create_provider(
-        backend=config["provider"],
-        url=(os.environ.get(config["url_env"]) or config["url_default"]) if config["url_env"] else None,
-        token=os.environ.get(config["token_env"]) or None,
-    )
-    backend = provider.backend(config["backend"])
+    backend = connect_backend(args.backend)
     print(f"Using backend: {backend.name}（不经过 Sampler，直接 backend.run）")
 
     # ------------------------------------------------------------------ #
@@ -246,6 +268,26 @@ def main() -> None:
     accuracy = float(np.mean(pred == y01))
     print(f"\n训练集分类准确率 = {accuracy:.4f}")
     print(f"训练后的权重: {np.round(final_weights, 6)}")
+
+    # ------------------------------------------------------------------ #
+    # 5. 跨服务推理测试（--infer-backend）。
+    #
+    #    模型本质上就是一组权重；前向就是 predict_probs —— 把权重绑定到线路、
+    #    一批提交给 backend.run()、counts 折算成概率。推理后端只是换一个
+    #    backend 实例，其余逻辑原样不动。训练好的权重可以搬到另一个服务上
+    #    只做纯推理，比如 lingyun 训练、tianyan 推理。
+    # ------------------------------------------------------------------ #
+    if args.infer_backend is not None:
+        
+        print(f"\n把训练好的权重搬到 {args.infer_backend} 上做纯推理测试 ...")
+        infer_backend = connect_backend(args.infer_backend)
+        infer_probs = predict_probs(
+            circuit, input_params, weight_params, X, final_weights, infer_backend, SHOTS
+        )
+        infer_pred = np.argmax(infer_probs, axis=1)
+        infer_accuracy = float(np.mean(infer_pred == y01))
+        print(f"  {backend.name} 训练的权重拖到 {infer_backend.name} 上推理")
+        print(f"  训练后端准确率 = {accuracy:.4f} | 推理后端准确率 = {infer_accuracy:.4f}")
 
 
 if __name__ == "__main__":
