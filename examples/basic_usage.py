@@ -5,6 +5,7 @@ Run with::
     python examples/basic_usage.py                          # 默认 lingyun
     python examples/basic_usage.py --backend wuyue
     python examples/basic_usage.py --backend tianyan
+    python examples/basic_usage.py --backend quafu
 
 Before running, set the token for the vendor you use (in ``.env`` or the
 environment)::
@@ -13,6 +14,7 @@ environment)::
     export LINGYUN_TOKEN=...       # macOS / Linux
     set TianYan_TOKEN=...
     set WUYUE_TOKEN=...
+    set QUANFU_TOKEN=...           # quafu 云端服务地址固定，无需 LINGYUN_URL
     set LINGYUN_URL=...            # lingyun 模拟机需要指向运行中的服务端
 
 This example talks to the chosen quantum-cloud platform over HTTP. It uses
@@ -61,6 +63,13 @@ PROVIDERS: dict[str, dict[str, object]] = {
         "token_env": "WUYUE_TOKEN",
         "transpile": True,
         "run_kwargs": {"shots": 1024, "calculate_type": 1, "timeout": 120},
+    },
+    "quafu": {
+        "provider": "quafu",
+        "backend": "ScQ-Sim10",  # 模拟机（10 比特）
+        "token_env": "QUANFU_TOKEN",
+        "transpile": True,
+        "run_kwargs": {"shots": 1024},
     },
 }
 

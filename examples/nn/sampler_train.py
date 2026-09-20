@@ -3,6 +3,7 @@
 Run with::
 
     python examples/nn/sampler_train.py --backend lingyun
+    python examples/nn/sampler_train.py --backend quafu
     # 跨服务推理测试：在 lingyun 训练，把权重搬到 tianyan 上再推理一遍
     python examples/nn/sampler_train.py --backend lingyun --infer-backend tianyan
 
@@ -11,6 +12,9 @@ Point ``LINGYUN_URL`` at it (defaults to ``http://127.0.0.1:8000``)::
 
     set LINGYUN_URL=http://127.0.0.1:8000        # Windows
     export LINGYUN_URL=http://127.0.0.1:8000     # macOS / Linux
+
+For Quafu (``--backend quafu``) set ``QUANFU_TOKEN`` in ``.env``; its
+cloud service address is fixed, so no URL is needed.
 
 It trains a 2-qubit ``SamplerQNN`` to separate a toy linearly-separable
 dataset, using :class:`quantumrouter.Sampler` as the Qiskit primitives
@@ -78,6 +82,13 @@ PROVIDERS: dict[str, dict[str, str | None]] = {
         "provider": "wuyue",
         "backend": "WuYue-QPUSim-FullAmpSim",  # 模拟机
         "token_env": "WUYUE_TOKEN",
+        "url_env": None,
+        "url_default": None,
+    },
+    "quafu": {
+        "provider": "quafu",
+        "backend": "ScQ-Sim10",  # 模拟机（10 比特）
+        "token_env": "QUANFU_TOKEN",
         "url_env": None,
         "url_default": None,
     },

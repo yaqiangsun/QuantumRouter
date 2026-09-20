@@ -34,7 +34,7 @@ import importlib
 # Subpackages known to live under this package. ``__getattr__`` uses
 # this set to decide whether an unknown attribute is a lazy vendor
 # import or a genuine ``AttributeError``. Add new vendor ids here.
-_VENDOR_PACKAGES = {"ibm", "lingyun", "tianyan", "wuyue"}
+_VENDOR_PACKAGES = {"ibm", "lingyun", "quafu", "tianyan", "wuyue"}
 
 
 def __getattr__(name: str):
