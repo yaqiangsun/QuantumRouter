@@ -3,6 +3,8 @@
 Run with::
 
     python examples/nn/sampler_train.py --backend lingyun
+    # 跨服务推理测试：在 lingyun 训练，把权重搬到 tianyan 上再推理一遍
+    python examples/nn/sampler_train.py --backend lingyun --infer-backend tianyan
 
 This example needs a running QuantumRouter simulation server (LingYun).
 Point ``LINGYUN_URL`` at it (defaults to ``http://127.0.0.1:8000``)::
@@ -16,6 +18,11 @@ backend. That is the whole point of the example: the circuits run on the
 **QuantumRouter backend**, not on a local statevector simulator, so the
 same training code works against a real device by changing only the
 provider URL.
+
+With ``--infer-backend`` it also shows the reverse direction — a model is
+only a vector of parameters, so the trained weights can be shipped to a
+*second* provider and run pure inference there. This proves the weights
+are portable across clouds: train on one service, infer on another.
 
 Requires ``qiskit-machine-learning``::
 
@@ -64,11 +71,15 @@ PROVIDERS: dict[str, dict[str, str | None]] = {
         "provider": "tianyan",
         "backend": "tianyan_sw",
         "token_env": "TianYan_TOKEN",
+        "url_env": None,
+        "url_default": None,
     },
     "wuyue": {
         "provider": "wuyue",
         "backend": "WuYue-QPUSim-FullAmpSim",  # 模拟机
         "token_env": "WUYUE_TOKEN",
+        "url_env": None,
+        "url_default": None,
     },
 }
 
@@ -79,7 +90,14 @@ def parse_args() -> argparse.Namespace:
         "--backend",
         choices=sorted(PROVIDERS),
         default="lingyun",
-        help=f"要用的后端指令：{' / '.join(sorted(PROVIDERS))}（默认 lingyun）",
+        help=f"训练要用的后端指令：{' / '.join(sorted(PROVIDERS))}（默认 lingyun）",
+    )
+    parser.add_argument(
+        "--infer-backend",
+        choices=sorted(PROVIDERS),
+        default=None,
+        help=f"可选：训练完成后，把训练好的权重搬到这个后端上做纯推理测试"
+             f"（跨服务验证模型可移植，例如 --backend lingyun --infer-backend tianyan）",
     )
     return parser.parse_args()
 
@@ -94,6 +112,22 @@ def build_dataset() -> tuple[np.ndarray, np.ndarray]:
     X = 2 * algorithm_globals.random.random([NUM_SAMPLES, NUM_INPUTS]) - 1
     y01 = 1 * (np.sum(X, axis=1) >= 0)  # 反对角线两侧分别标 0 / 1
     return X, y01
+
+
+def connect_backend(name: str) -> tuple[qr.Sampler, object]:
+    """按 PROVIDERS 表里的键连上一个后端，并包成 quantumrouter.Sampler。
+
+    训练和跨服务推理都走这里：唯一的区别只是传进来的名字不同。
+    """
+    config = PROVIDERS[name]
+    url = (os.environ.get(config["url_env"]) or config["url_default"]) if config["url_env"] else None
+    provider = qr.create_provider(
+        backend=config["provider"],
+        url=url,
+        token=os.environ.get(config["token_env"]) or None,
+    )
+    backend = provider.backend(config["backend"])
+    return qr.Sampler(backend), backend
 
 
 def main() -> None:
@@ -113,14 +147,7 @@ def main() -> None:
     #
     #    用 --backend 指令切换供应商：lingyun / tianyan / wuyue。
     # ------------------------------------------------------------------ #
-    config = PROVIDERS[args.backend]
-    provider = qr.create_provider(
-        backend=config["provider"],
-        url=(os.environ.get(config["url_env"]) or config["url_default"]) if config["url_env"] else None,
-        token=os.environ.get(config["token_env"]) or None,
-    )
-    backend = provider.backend(config["backend"])
-    sampler = qr.Sampler(backend)
+    sampler, backend = connect_backend(args.backend)
 
     # ------------------------------------------------------------------ #
     # 2. 构建 QNN 线路。
@@ -163,6 +190,33 @@ def main() -> None:
     accuracy = classifier.score(X, y01)
     print(f"\n训练集分类准确率 = {accuracy:.4f}")
     print(f"训练后的权重: {np.round(classifier.weights, 6)}")
+
+    # ------------------------------------------------------------------ #
+    # 5. 跨服务推理测试（--infer-backend）。
+    #
+    #    模型本质上就是一组权重。线路定义、参数布局都和具体云无关，只有
+    #    真正采样那一刻才接触后端 —— 所以训练好的权重可以原样搬到另一个
+    #    服务上，只用它做纯推理（不训练）。这是 QuantumRouter 想证明的场景：
+    #    一套权重，随处推理；比如 lingyun 训练，tianyan 推理。
+    # ------------------------------------------------------------------ #
+    if args.infer_backend is not None:
+        print(
+            f"\n把训练好的权重搬到 {args.infer_backend} 上做纯推理测试 ..."
+        )
+        infer_sampler, infer_backend = connect_backend(args.infer_backend)
+        infer_qnn = SamplerQNN(
+            circuit=circuit.copy(),  # 逻辑线路，后端侧会按各自 Target 自动映射
+            input_params=input_params,
+            weight_params=weight_params,
+            interpret=parity,
+            output_shape=2,
+            sampler=infer_sampler,
+        )
+        infer_probs = infer_qnn.forward(X, classifier.weights)
+        infer_pred = np.argmax(infer_probs, axis=1)
+        infer_accuracy = float(np.mean(infer_pred == y01))
+        print(f"  {backend.name} 训练的权重拖到 {infer_backend.name} 上推理")
+        print(f"  训练后端准确率 = {accuracy:.4f} | 推理后端准确率 = {infer_accuracy:.4f}")
 
 
 if __name__ == "__main__":
