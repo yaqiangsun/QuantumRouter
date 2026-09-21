@@ -116,10 +116,10 @@ The `examples/` directory contains runnable, vendor-specific demos:
 
 | Example | Vendor | What it shows |
 |---|---|---|
-| [basic_usage.py](examples/basic_usage.py) | LingYun / TianYan / WuYue | merged demo — the same code, switch vendor with `--backend` |
+| [basic_usage.py](examples/basic_usage.py) | Local / LingYun / TianYan / WuYue / Quafu / LQCloud | merged demo — the same code, switch vendor with `--backend` (`--backend local` runs on Qiskit's built-in simulator, no cloud account needed) |
 | [multi_vendor.py](examples/multi_vendor.py) | LingYun + IBM | switch vendors with one parameter |
 | [pcie_transport.py](examples/pcie_transport.py) | LingYun | select a PCIe transport via URL scheme |
-| [nn/sampler_train.py](examples/nn/sampler_train.py) | LingYun / TianYan / WuYue | train a `SamplerQNN` through `quantumrouter.Sampler` — switch vendor with `--backend` |
+| [nn/sampler_train.py](examples/nn/sampler_train.py) | Local / LingYun / TianYan / WuYue / Quafu / LQCloud | train a `SamplerQNN` through `quantumrouter.Sampler` — switch vendor with `--backend` (`--backend local` trains fully offline) |
 
 Run any of them with, for example:
 
@@ -129,7 +129,9 @@ python examples/basic_usage.py
 
 Most examples accept connection details from environment variables
 (`LINGYUN_TOKEN`, `LINGYUN_URL`, `IBM_QUANTUM_TOKEN`, ...) — set the ones you
-need before running.
+need before running. `--backend local` needs none of them: it runs on Qiskit's
+built-in simulator (`quantumrouter.providers.local`), so you can try the whole
+API without a cloud account.
 
 The `nn/` examples additionally need `qiskit-machine-learning`
 (`pip install qiskit-machine-learning`).
@@ -146,6 +148,7 @@ quantumrouter/
     ├── __init__.py             #   lazy __getattr__ for vendor subpackages
     ├── ibm/                    #   IBM Quantum (qiskit-ibm-provider)
     ├── lingyun/                #   LingYun — HTTP / PCIe, QCIS & OpenQASM3
+    ├── local/                  #   Local Qiskit simulator (no network)
     ├── tianyan/                #   TianYan — cqlib-adapter
     └── wuyue/                  #   WuYue — wuyue SDK
 ```

@@ -3,6 +3,7 @@
 Run with::
 
     python examples/basic_usage.py                          # 默认 lingyun
+    python examples/basic_usage.py --backend local          # 本地 Qiskit 仿真，无需 token / URL / 服务端
     python examples/basic_usage.py --backend wuyue
     python examples/basic_usage.py --backend tianyan
     python examples/basic_usage.py --backend quafu
@@ -19,7 +20,8 @@ environment)::
     set LQCLOUD_TOKEN=...          # lqcloud 真机 MQ02，云端地址固定
     set LINGYUN_URL=...            # lingyun 模拟机需要指向运行中的服务端
 
-This example talks to the chosen quantum-cloud platform over HTTP. It uses
+``--backend local`` 不需要上面任何一项：它在本地用 Qiskit 自带模拟器跑，
+完全不联网。This example talks to the chosen quantum-cloud platform over HTTP. It uses
 ``create_provider``, the single entry point that keeps the calling code
 identical when switching vendors.
 """
@@ -43,6 +45,13 @@ from dotenv import load_dotenv  # noqa: E402
 
 # backend -> provider / 后端名 / env 里读 token 的键名 / run 参数
 PROVIDERS: dict[str, dict[str, object]] = {
+    "local": {
+        "provider": "local",
+        "backend": "local_simulator",  # 本地 Qiskit 仿真，无需 token / URL / 服务端
+        "token_env": "LOCAL_TOKEN",    # 本后端从不读取 token，这里只占位
+        "transpile": True,
+        "run_kwargs": {"shots": 1024},
+    },
     "lingyun": {
         "provider": "lingyun",
         "backend": "lingyun_001",

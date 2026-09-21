@@ -34,7 +34,8 @@ import importlib
 # Subpackages known to live under this package. ``__getattr__`` uses
 # this set to decide whether an unknown attribute is a lazy vendor
 # import or a genuine ``AttributeError``. Add new vendor ids here.
-_VENDOR_PACKAGES = {"ibm", "lingyun", "lqcloud", "quafu", "tianyan", "wuyue"}
+# ``local`` is the offline simulator provider (no network, no extra deps).
+_VENDOR_PACKAGES = {"ibm", "lingyun", "local", "lqcloud", "quafu", "tianyan", "wuyue"}
 
 
 def __getattr__(name: str):

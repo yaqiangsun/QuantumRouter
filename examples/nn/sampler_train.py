@@ -2,11 +2,16 @@
 
 Run with::
 
+    python examples/nn/sampler_train.py --backend local     # 本地 Qiskit 仿真，无需 token / URL
     python examples/nn/sampler_train.py --backend lingyun
     python examples/nn/sampler_train.py --backend quafu
     python examples/nn/sampler_train.py --backend lqcloud
     # 跨服务推理测试：在 lingyun 训练，把权重搬到 tianyan 上再推理一遍
     python examples/nn/sampler_train.py --backend lingyun --infer-backend tianyan
+
+``--backend local`` runs the whole training loop on Qiskit's built-in local
+simulator — no URL, no token, no running server; combine it with
+``--infer-backend tianyan`` etc. to exercise cross-vendor inference locally.
 
 This example needs a running QuantumRouter simulation server (LingYun).
 Point ``LINGYUN_URL`` at it (defaults to ``http://127.0.0.1:8000``)::
@@ -70,6 +75,13 @@ MAX_ITER = 30
 
 # backend -> (provider_id, backend_id, env 里读 token 的键名)
 PROVIDERS: dict[str, dict[str, str | None]] = {
+    "local": {
+        "provider": "local",
+        "backend": "local_simulator",  # 本地 Qiskit 仿真，无需 token / URL / 服务端
+        "token_env": "LOCAL_TOKEN",    # 占位：本后端从不读 token / URL
+        "url_env": "LOCAL_URL",
+        "url_default": None,
+    },
     "lingyun": {
         "provider": "lingyun",
         "backend": "lingyun_001",
