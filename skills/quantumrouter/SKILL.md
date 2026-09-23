@@ -36,15 +36,19 @@ backends = provider.backends(online=True)   # list[Backend], hits the cloud
 backend  = provider.backend("lingyun_001")  # one Backend by name
 ```
 
-| id | Typical backend name | Env vars | Extra install |
-|---|---|---|---|
-| `local` | `local_simulator` | none | — |
-| `lingyun` | `lingyun_001` | `LINGYUN_TOKEN`, `LINGYUN_URL` | `quantumrouter[lingyun]` |
-| `tianyan` | `tianyan_sw` | `TianYan_TOKEN` | `quantumrouter[tianyan]` |
-| `wuyue` | `WuYue-QPUSim-FullAmpSim` | `WUYUE_TOKEN` | — |
-| `quafu` | `ScQ-Sim10` | `QUANFU_TOKEN` | — |
-| `lqcloud` | `MQ02` (real 24-qubit) | `LQCLOUD_TOKEN` | — |
-| `ibm` | — | `IBM_QUANTUM_TOKEN`, `IBM_INSTANCE` | `quantumrouter[ibm]` |
+| id | Typical backend name | Extra install |
+|---|---|---|
+| `local` | `local_simulator` | — |
+| `lingyun` | `lingyun_001` | `quantumrouter[lingyun]` |
+| `tianyan` | `tianyan_sw` | `quantumrouter[tianyan]` |
+| `wuyue` | `WuYue-QPUSim-FullAmpSim` | — |
+| `quafu` | `ScQ-Sim10` | — |
+| `lqcloud` | `MQ02` (real 24-qubit) | — |
+| `ibm` | — | `quantumrouter[ibm]` |
+
+- Pass credentials explicitly: `create_provider(backend=..., token=..., url=...)`.
+  (IBM is the one exception — it falls back to the `IBM_QUANTUM_TOKEN`
+  environment variable when `token=` is omitted.)
 
 - `local` runs offline on Qiskit's `BasicSimulator` — no token, URL, or server.
   Try the whole API with it: `qr.create_provider("local")` (optional
