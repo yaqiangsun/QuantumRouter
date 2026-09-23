@@ -15,8 +15,12 @@ description: >-
 # QuantumRouter
 
 One vendor-agnostic interface to many quantum clouds: switch vendors by changing
-one parameter, the calling code stays identical. `pip install quantumrouter`
-(Python ≥ 3.10). In this repo use the local venv: `.venv\Scripts\python.exe`.
+one parameter, the calling code stays identical.
+
+```bash
+pip install quantumrouter           # Python >= 3.10; core deps: qiskit, requests
+pip install "quantumrouter[all]"    # add every vendor extra
+```
 
 ## Entry point
 
