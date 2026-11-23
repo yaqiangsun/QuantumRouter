@@ -34,6 +34,8 @@ Unified interface for quantum cloud providers. One API, any backend.
   <a href="#examples">Examples</a> •
   <a href="#adding-a-vendor">Adding a vendor</a> •
   <a href="#license">License</a>
+  <br>
+  <b>English</b> · <a href="README.zh-CN.md">简体中文</a>
 </p>
 
 ## Introduction
@@ -65,7 +67,7 @@ pulled in by default — install the extras you need:
 pip install "quantumrouter[lingyun]"   # LingYun deps only (numpy)
 pip install "quantumrouter[ibm]"       # IBM Quantum deps (qiskit-ibm-provider)
 pip install "quantumrouter[tianyan]"   # TianYan deps (cqlib-adapter)
-pip install "quantumrouter[wuyue]"     # WuYue deps (wuyue)
+pip install "quantumrouter[wuyue]"     # WuYue deps (none — direct REST)
 
 pip install "quantumrouter[all]"       # every vendor's deps at once
 ```
@@ -138,6 +140,8 @@ The `nn/` examples additionally need `qiskit-machine-learning`
 
 ## Architecture
 
+![QuantumRouter architecture](assets/quantumrouter-architecture-en.svg)
+
 ```
 quantumrouter/
 ├── transport/                  # generic wire layer (HTTP, PCIe, …)
@@ -148,9 +152,11 @@ quantumrouter/
     ├── __init__.py             #   lazy __getattr__ for vendor subpackages
     ├── ibm/                    #   IBM Quantum (qiskit-ibm-provider)
     ├── lingyun/                #   LingYun — HTTP / PCIe, QCIS & OpenQASM3
+    ├── lqcloud/                #   LQCloud — REST, native instruction IR
     ├── local/                  #   Local Qiskit simulator (no network)
+    ├── quafu/                  #   Quafu — REST, OpenQASM 2
     ├── tianyan/                #   TianYan — cqlib-adapter
-    └── wuyue/                  #   WuYue — wuyue SDK
+    └── wuyue/                  #   WuYue — REST + AK/SK request signing
 ```
 
 Three layers, top-down:
